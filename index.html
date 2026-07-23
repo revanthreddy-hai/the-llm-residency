@@ -159,7 +159,7 @@
     <div class="container">
       <p class="kicker">The route</p>
       <h2 class="section-title" id="route-title">The six-month plan</h2>
-      <p class="section-dek">Each leg ends with an artifact a senior engineer could audit.</p>
+      <p class="section-dek">Each phase ends with a project and a short technical report.</p>
 
       <div class="route">
         <div class="route-row">
@@ -170,7 +170,7 @@
         <div class="route-row">
           <h3>Foundations</h3>
           <span class="weeks">WEEKS 1–8</span>
-          <p>Tokenization, attention, the transformer, training dynamics, data, evals. Ends with a GPT you trained from scratch, plus the audit-ready training report.</p>
+          <p>Tokenization, attention, the transformer, training dynamics, data, evals. Ends with a GPT you trained from scratch, plus a written training report.</p>
         </div>
         <div class="route-row">
           <h3>Adaptation</h3>
@@ -219,7 +219,7 @@
             <span class="chips"></span>
           </summary>
           <div class="body">
-            <p class="aha">Shapes are the whole game, and a derivative is just a sensitivity dial.</p>
+            <p class="aha">Most early bugs are tensor-shape bugs, and a derivative is a sensitivity measure.</p>
             <p class="lab"><strong>LAB</strong> · Ten shape-bug fixes, then build micrograd-lite: a working autograd engine in ~100 lines.</p>
           </div>
         </details>
@@ -235,21 +235,21 @@
         <details class="week">
           <summary><span class="no">W01</span><span class="t">A Language Model, End to End</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Next-token prediction is the whole trick; loss is just surprise, measured.</p>
+            <p class="aha">A language model predicts the next token; cross-entropy measures how surprised it was.</p>
             <p class="lab"><strong>LAB</strong> · Count-based bigram → neural bigram → MLP, with held-out evaluation from day one.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W02</span><span class="t">How Text Becomes Numbers</span><span class="chips"><span class="chip chip-int">interactive</span></span></summary>
           <div class="body">
-            <p class="aha">Tokenizers explain half of LLM weirdness: arithmetic, spelling, multilingual cost.</p>
+            <p class="aha">Many LLM quirks trace back to tokenization: arithmetic, spelling, multilingual cost.</p>
             <p class="lab"><strong>LAB</strong> · Build BPE from scratch and train it on a real corpus. Ships with the Tokenizer Playground.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W03</span><span class="t">Embeddings: The Geometry of Meaning</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Meaning is direction in vector space.</p>
+            <p class="aha">Embeddings turn tokens into vectors where direction carries meaning.</p>
             <p class="lab"><strong>LAB</strong> · Train embeddings; probe analogies and, more instructively, their failure modes.</p>
           </div>
         </details>
@@ -284,8 +284,8 @@
         <details class="week">
           <summary><span class="no">W08</span><span class="t">Evaluation: How To Not Fool Yourself</span><span class="chips"><span class="chip chip-mile">milestone</span></span></summary>
           <div class="body">
-            <p class="aha">Benchmarks have anatomy; variance and contamination are real, and mostly unexamined.</p>
-            <p class="lab"><strong>LAB</strong> · Build the eval harness you’ll use all course; run one benchmark ten times and study the spread. <strong>MILESTONE</strong> · “I trained a GPT”: your audit-ready training report.</p>
+            <p class="aha">Benchmark scores swing between runs and leak into training data; measure both before trusting a number.</p>
+            <p class="lab"><strong>LAB</strong> · Build the eval harness you’ll use all course; run one benchmark ten times and study the spread. <strong>MILESTONE</strong> · “I trained a GPT”: a training report with curves, samples, evals, and cost.</p>
           </div>
         </details>
       </div>
@@ -300,7 +300,7 @@
         <details class="week">
           <summary><span class="no">W09</span><span class="t">Base Model → Assistant: SFT</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Assistants are a persona trained on top; chat templates are load-bearing.</p>
+            <p class="aha">An assistant is a persona trained on top of a base model; a wrong chat template breaks it quietly.</p>
             <p class="lab"><strong>LAB</strong> · SFT an open 0.5–3B model on a public instruct set; get loss masking right.</p>
           </div>
         </details>
@@ -314,7 +314,7 @@
         <details class="week">
           <summary><span class="no">W11</span><span class="t">Preference Optimization</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">RLHF is a pipeline, not an algorithm; DPO is the workhorse you can actually run.</p>
+            <p class="aha">RLHF is a multi-stage pipeline; DPO gives most of the benefit with far less machinery.</p>
             <p class="lab"><strong>LAB</strong> · DPO on public preference data; before/after evals, plus a sycophancy check.</p>
           </div>
         </details>
@@ -328,21 +328,21 @@
         <details class="week">
           <summary><span class="no">W13</span><span class="t">Inference I: The KV Cache</span><span class="chips"><span class="chip chip-int">interactive</span></span></summary>
           <div class="body">
-            <p class="aha">Generation is a memory-bandwidth problem wearing a compute costume.</p>
+            <p class="aha">During decoding, memory bandwidth limits throughput more than arithmetic does.</p>
             <p class="lab"><strong>LAB</strong> · Derive the KV-cache sizing formula; verify it against measurement within 5%; find the OOM cliff. Ships with the KV-Cache Visualizer.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W14</span><span class="t">Inference II: Batching &amp; PagedAttention</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Throughput is manufactured by batching; paged KV is virtual memory for attention.</p>
+            <p class="aha">Throughput comes from batching; PagedAttention manages KV memory the way an OS manages virtual memory.</p>
             <p class="lab"><strong>LAB</strong> · vLLM vs a naive generation loop: TTFT, ITL, and throughput under real load.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W15</span><span class="t">Inference III: Quantization &amp; Speculative Decoding</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Quality-per-dollar is an engineering surface, not a compromise.</p>
+            <p class="aha">Compare quantization and speculative decoding by quality, latency, memory, and cost.</p>
             <p class="lab"><strong>LAB</strong> · Quantize weights and KV (int8 / int4 / FP8); add a draft model; measure everything.</p>
           </div>
         </details>
@@ -365,14 +365,14 @@
         <details class="week">
           <summary><span class="no">W17</span><span class="t">Distributed Inference</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">One GPU stops being enough exactly when the math says so.</p>
+            <p class="aha">Work out when one GPU is no longer enough, then split the model across several.</p>
             <p class="lab"><strong>LAB</strong> · Tensor-parallel serving on two GPUs; disaggregated prefill/decode; routing.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W18</span><span class="t">Operating a Serving Stack</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Serving is an SRE problem: SLOs, saturation, and drills, not vibes.</p>
+            <p class="aha">Serving is an SRE problem: SLOs, saturation, and practice drills.</p>
             <p class="lab"><strong>LAB</strong> · Dashboards, a load test, and three incident drills: OOM, cache thrash, silent regression.</p>
           </div>
         </details>
@@ -386,21 +386,21 @@
         <details class="week">
           <summary><span class="no">W20</span><span class="t">Benchmarks Worth Trusting (Build One)</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Construct validity beats leaderboard theater.</p>
+            <p class="aha">Build a benchmark that measures the capability you care about.</p>
             <p class="lab"><strong>LAB</strong> · Design a mini-benchmark with contamination controls and variance bars.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W21</span><span class="t">Choosing a Capstone: Scoping Under Uncertainty</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Sizing experiments and kill criteria are the senior skill.</p>
+            <p class="aha">Define the baseline, budget, and stopping criteria before running anything.</p>
             <p class="lab"><strong>LAB</strong> · Your capstone one-pager: baseline, budget, kill criteria, a thread that started back in Week 8.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W22</span><span class="t">Capstone Build-Log I</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Real experiments, honestly reported.</p>
+            <p class="aha">Hypotheses, runs, failed approaches, ablations, and compute cost, written down.</p>
             <p class="lab"><strong>LAB</strong> · Hypotheses → runs → ablations → failures, with costs attached.</p>
           </div>
         </details>
@@ -421,14 +421,14 @@
         <details class="week">
           <summary><span class="no">W25</span><span class="t">Demo Day</span><span class="chips"><span class="chip chip-mile">milestone</span></span></summary>
           <div class="body">
-            <p class="aha">If a senior engineer can’t audit it, it isn’t done.</p>
+            <p class="aha">Finish with a report and a demo that someone else could verify.</p>
             <p class="lab"><strong>MILESTONE</strong> · The capstone report and demo artifact, presented.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W26</span><span class="t">Graduation: The Whole Map, Revisited</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">You now read the field’s papers as an insider.</p>
+            <p class="aha">Revisit the earlier papers and decide what to study next.</p>
             <p class="lab"><strong>LAB</strong> · Self-audit against all seventeen competencies; your year-2 reading system; the role map: inference, training, or applied.</p>
           </div>
         </details>

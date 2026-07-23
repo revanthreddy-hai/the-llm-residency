@@ -136,11 +136,10 @@
       number again.</p>
 
       <h3><span class="stage-no">05</span>Inference</h3>
-      <p>The stage this program treats as a first-class citizen, because almost nobody else does. Training
+      <p>I give inference six full weeks because it is the part I most want to understand deeply. Training
       happens once; inference happens every time any user sends any message, forever. It has its own deep
       engineering: why generating text is bottlenecked on <em>memory bandwidth</em> rather than raw
-      compute, the KV cache (the data structure that quietly dictates the economics of every LLM API on
-      earth), batching strategies, quantization, speculative decoding, and what an H100 actually does for
+      compute, the KV cache (the data structure behind most of an LLM API’s serving cost), batching strategies, quantization, speculative decoding, and what an H100 actually does for
       its $30,000. <span class="wkchip">Weeks 13–17</span> cover all of it, and if you end up specializing where the
       industry is currently most starved for engineers, it will probably be here.</p>
 
@@ -157,8 +156,8 @@
       <p>Roughly three roles live on this pipeline. <strong>Training engineers</strong> live in stages 1–3
       (data, distributed training, post-training recipes). <strong>Inference engineers</strong> live in
       5–6 (serving systems, GPU economics, latency). <strong>Applied LLM engineers</strong> build products
-      on top of everything (retrieval, agents, evals for their domain). The market is short on all three;
-      it is <em>desperately</em> short on the middle one, because it demands systems engineering and ML
+      on top of everything (retrieval, agents, evals for their domain). Teams hire for all three;
+      the middle one is consistently the hardest to fill, because it needs systems engineering and ML
       fluency in the same head.</p>
 
       <p>This program covers the entire pipeline; you can’t reason about serving a model you don’t
@@ -261,7 +260,7 @@ for _ in range(5):
         <li>Bengio et&nbsp;al., <em>A Neural Probabilistic Language Model</em> (2003): the paper Week 1
         quietly reenacts.</li>
         <li>Karpathy, <em>makemore</em> (GitHub): the spiritual ancestor of today’s lab; his video series
-        is the best companion material on the internet for Weeks 1–5.</li>
+        pairs well with Weeks 1 through 5.</li>
         <li>Shannon, <em>Prediction and Entropy of Printed English</em> (1951): people were doing today’s
         lab by hand, on paper, in 1951. It’s a delightful read.</li>
       </ul>
