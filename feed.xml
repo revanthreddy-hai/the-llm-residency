@@ -6,14 +6,14 @@
   <link href="https://revanthreddy-hai.github.io/the-llm-residency/"/>
   <link rel="self" href="https://revanthreddy-hai.github.io/the-llm-residency/feed.xml"/>
   <id>https://revanthreddy-hai.github.io/the-llm-residency/</id>
-  <updated>2026-07-22T00:00:00Z</updated>
+  <updated>2026-07-23T00:00:00Z</updated>
   <author><name>The LLM Residency</name></author>
   <entry>
     <title>The Map of the Territory</title>
     <link href="https://revanthreddy-hai.github.io/the-llm-residency/week00a.html"/>
     <id>https://revanthreddy-hai.github.io/the-llm-residency/week00a.html</id>
     <published>2026-07-21T00:00:00Z</published>
-    <updated>2026-07-21T00:00:00Z</updated>
-    <summary>Week 0 · Part A. An LLM is one pipeline: data, pretraining, post-training, evals, inference, operations. None of it is magic, and by the end of this program you will have built every stage yourself. Today you train your first one.</summary>
+    <updated>2026-07-23T00:00:00Z</updated>
+    <summary>Week 0 · Part A. A practical map of the LLM lifecycle, plus a character-level language model with held-out evaluation that runs on a laptop CPU.</summary>
   </entry>
 </feed>

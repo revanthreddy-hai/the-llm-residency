@@ -6,7 +6,9 @@ Source for **The LLM Residency**: a six-month learning journal from inside a rea
 
 ## Stack
 
-Deliberately none: hand-crafted static HTML + one CSS file. No framework, no build step, no JavaScript beyond a subscribe intercept and a copy button. Serves anywhere that serves files.
+Deliberately small: hand-crafted static HTML + one CSS file. No framework or build step; JavaScript is limited
+to progressive enhancements such as the subscribe form, copy button, and Week 0 next-token explainer. Serves
+anywhere that serves files.
 
 ## Structure
 

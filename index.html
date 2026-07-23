@@ -69,10 +69,11 @@
   <section class="section" id="pipeline" aria-labelledby="pipeline-title">
     <div class="container">
       <p class="kicker">The territory</p>
-      <h2 class="section-title" id="pipeline-title">The six stages of an LLM system</h2>
+      <h2 class="section-title" id="pipeline-title">Six parts of the LLM lifecycle</h2>
       <p class="section-dek">
-        A large language model is a single system: data goes in one end, a running product comes out
-        the other. Nothing in between is magic; it is engineering you can learn, stage by stage.
+        Building and operating a GPT-style model spans six connected areas. This is the order I use to
+        structure the journal, not a one-way pipeline: evaluation runs throughout, and operations feeds back
+        into data, training, and deployment.
       </p>
 
       <div class="pipeline">
@@ -116,8 +117,7 @@
 
       <p class="pipeline-caption">
         <strong>The specialization spine:</strong> weeks 13–18 form a dedicated six-week inference &amp;
-        operations core, the deepest treatment these notes give any stage. Most courses compress it into a
-        single lecture; here it is where the real work happens.
+        operations core; it is the part of the lifecycle I most want to understand, so it gets the deepest treatment.
       </p>
     </div>
   </section>
@@ -138,7 +138,7 @@
         <div class="artifact">
           <span class="tag">Build · ~2–4 h</span>
           <h3>The lab</h3>
-          <p>Autograded with pytest: it tells you your attention head is wrong <em>before</em> you waste a training run. Runs on Colab or one consumer GPU.</p>
+          <p>Runnable self-checks, with pytest where it adds value. Labs run on Colab or one consumer GPU.</p>
         </div>
         <div class="artifact">
           <span class="tag">Keep</span>
@@ -277,15 +277,15 @@
         <details class="week">
           <summary><span class="no">W07</span><span class="t">Data Is the Actual Model</span><span class="chips"></span></summary>
           <div class="body">
-            <p class="aha">Filtering, deduplication, and mixing move quality more than architecture does.</p>
+            <p class="aha">Filtering, deduplication, and dataset mixture can materially change model quality.</p>
             <p class="lab"><strong>LAB</strong> · Build a mini pipeline; measure exactly what dirty data does to your Week-6 model.</p>
           </div>
         </details>
         <details class="week">
           <summary><span class="no">W08</span><span class="t">Evaluation: How To Not Fool Yourself</span><span class="chips"><span class="chip chip-mile">milestone</span></span></summary>
           <div class="body">
-            <p class="aha">Benchmark scores swing between runs and leak into training data; measure both before trusting a number.</p>
-            <p class="lab"><strong>LAB</strong> · Build the eval harness you’ll use all course; run one benchmark ten times and study the spread. <strong>MILESTONE</strong> · “I trained a GPT”: a training report with curves, samples, evals, and cost.</p>
+            <p class="aha">Benchmark items can contaminate training data, and scores depend on the dataset, prompt, sampling, and judge.</p>
+            <p class="lab"><strong>LAB</strong> · Build the eval harness used throughout the residency; create held-out data, repeat stochastic measurements, and report uncertainty. <strong>MILESTONE</strong> · “I trained a GPT”: a training report with curves, samples, evals, and cost.</p>
           </div>
         </details>
       </div>
@@ -560,8 +560,8 @@
         </div>
         <div class="item">
           <span class="n">02</span>
-          <h3>Code that runs, weekly</h3>
-          <p>Every lab is re-executed by CI every week. Nothing stays published that doesn’t run.</p>
+          <h3>Code with recorded checks</h3>
+          <p>Each published lab includes visible self-checks and records the environment used to run it.</p>
         </div>
         <div class="item">
           <span class="n">03</span>
@@ -587,9 +587,8 @@
       <a class="sample-card" href="week00a.html">
         <p class="kicker">Week 0 · Part A</p>
         <h3>The Map of the Territory</h3>
-        <p class="excerpt">“Here is the claim this entire program stands on: there is no magic anywhere in the pipeline.
-        A large language model is one system with six stages, each of which is ordinary engineering: ambitious,
-        sometimes expensive, occasionally maddening, but ordinary.”</p>
+        <p class="excerpt">“I have used language models for a while now, but I want a more exact picture of what
+        happens between raw text and a served system. This is the map I am starting with.”</p>
         <span class="read">Read Week 0a · about 9 minutes →</span>
       </a>
     </div>
