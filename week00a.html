@@ -80,7 +80,7 @@
 
       <p>This first post is the map. Everything after it is territory.</p>
 
-      <h2 id="one-sentence">One sentence, load-bearing</h2>
+      <h2 id="one-sentence">The one-sentence version</h2>
 
       <p>A language model is <strong>a function that takes a sequence of tokens and outputs a probability
       for every possible next token.</strong></p>
@@ -99,7 +99,7 @@
         <span>Data</span><span class="arr" aria-hidden="true">→</span><span>Pretraining</span><span class="arr" aria-hidden="true">→</span><span>Post-training</span><span class="arr" aria-hidden="true">→</span><span>Evals</span><span class="arr" aria-hidden="true">→</span><span class="core">Inference</span><span class="arr" aria-hidden="true">→</span><span class="core">Operations</span>
       </figure>
 
-      <h2 id="six-stages">The six stages, honestly</h2>
+      <h2 id="six-stages">The six stages</h2>
 
       <h3><span class="stage-no">01</span>Data</h3>
       <p>Someone has to decide what a model reads, and “the internet” is not an answer; it’s a problem
@@ -128,8 +128,8 @@
       to.</p>
 
       <h3><span class="stage-no">04</span>Evals</h3>
-      <p>How do you know any of it worked? Benchmarks. And here’s the uncomfortable truth this program
-      refuses to hide: evals are the easiest place in the whole pipeline to fool yourself. Test questions
+      <p>How do you know any of it worked? Benchmarks, and this deserves the emphasis: evals are the
+      easiest place in the whole pipeline to fool yourself. Test questions
       leak into training data. Scores swing run to run. Models learn the <em>format</em> of a benchmark
       instead of the skill. Serious teams treat evaluation as an engineering discipline In <span class="wkchip">Week 8</span>, then again in <span class="wkchip">Week 20</span>, you’ll build an eval
       harness, run the same benchmark ten times, and look hard at the spread before you ever trust a single
@@ -161,7 +161,7 @@
       fluency in the same head.</p>
 
       <p>This program covers the entire pipeline; you can’t reason about serving a model you don’t
-      understand, and the foundations (Weeks 1–8) are non-negotiable. But it allocates its depth budget
+      understand, so the foundations (Weeks 1–8) come first. But it allocates its depth budget
       deliberately: <strong>six of the twenty-six weeks (13 through 18) live entirely on inference and
       operations</strong>, the slice other courses compress into a single lecture, with inference threads
       running from Week 6 onward. By Week 16 you will have served your own fine-tuned model under a stated
@@ -225,7 +225,7 @@ for w in words:
 P = (N + 1).float()                                    <span class="c"># +1: never say "impossible"</span>
 P /= P.sum(1, keepdim=True)                            <span class="c"># rows sum to 1.0</span>
 
-<span class="c"># generation: the same loop ChatGPT runs, minus 175 billion parameters</span>
+<span class="c"># generation: the same sampling loop every LLM uses, behind a much weaker model</span>
 g = torch.Generator().manual_seed(42)
 for _ in range(5):
     out, ix = [], 0
@@ -237,21 +237,25 @@ for _ in range(5):
     print(<span class="s">""</span>.join(out))</code></pre>
       </div>
 
-      <p>Run it (guided version with tests: <code>lab repo → week00/</code>). You’ll get names like
-      <code>jaria</code>, <code>ken</code>, <code>mor</code>, <code>dolissa</code>, and some absolute
-      nonsense like <code>nnnaiah</code>. Both outcomes matter:</p>
+      <p>Run it (guided version with tests: <code>lab repo → week00/</code>). On my Mac the whole thing,
+      counting through evaluation, takes about a second. With seed 42 the first names out are
+      <code>anugeenvi</code>, <code>s</code>, <code>mabidushan</code>, <code>stan</code>,
+      <code>silaylelaremah</code>: one plausible name, a fourteen-letter ramble, and a name that is just
+      the letter s. All of these outcomes matter:</p>
 
       <ul>
         <li><strong>It works.</strong> The table looked at real names and now produces name-<em>shaped</em>
-        strings it has never seen. It learned the statistics of a tiny universe. That’s not a metaphor for
-        what GPT does; it <em>is</em> what GPT does, at 1/10-billionth scale: model the probability of
-        what comes next, then sample from it. You have now trained and sampled from a language model. The
+        strings it has never seen. It learned the statistics of a tiny universe. And the sampling loop is the
+        same one every LLM runs: model the probability of what comes next, then sample from it. What
+        differs is the model behind the distribution: a 27-by-27 table here, a transformer with billions
+        of parameters in ChatGPT. You have now trained and sampled from a language model. The
         sentence at the top of this post should feel less abstract already.</li>
-        <li><strong>It’s terrible.</strong> It only remembers one character of context, so
-        <code>nnnaiah</code> slips through: each step looked locally plausible and the whole is garbage.
+        <li><strong>It’s terrible.</strong> It only remembers one character of context, so a “name” can be
+        a single letter or a fourteen-letter ramble: each step looked locally plausible and the whole is
+        garbage.
         Fixing <em>that</em> (looking further back, and learning which parts of the past matter) is, in a
         very real sense, the entire rest of this course. Next week we give it a brain instead of a lookup
-        table. In Week 4 we meet attention, the idea that ate the field.</li>
+        table. In Week 4 we meet attention, the idea modern LLMs are built on.</li>
       </ul>
 
       <h2 id="sources">Sources &amp; further reading</h2>
