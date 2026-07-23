@@ -56,13 +56,13 @@
         <ol>
           <li>What does a GPT-style model produce before the decoder chooses the next token?</li>
           <li>What are the two broad training phases between raw text and a useful assistant?</li>
-          <li>Why is prompt prefill usually more compute-intensive, while autoregressive decode is often
-          memory-bandwidth-bound even though it emits only one token per step?</li>
+          <li>A GPU can process a 1,000-token prompt in a single pass. Why is emitting the next 50 tokens,
+          one at a time, often the slower part?</li>
         </ol>
         <p class="fine">If #3 made you pause, that is expected. It is the question I return to in Week 13.</p>
       </aside>
 
-      <p>I have used language models in production, but I want a more exact picture of what happens between
+      <p>I have used language models for a while now, but I want a more exact picture of what happens between
       raw text and a served system. For the next six months I am building small, inspectable versions of each
       part and publishing the code, measurements, failures, and corrections.</p>
 
@@ -177,7 +177,7 @@ for _ in range(5):
         by itself, rule out memorization.</li>
         <li><strong>Its representation is weak.</strong> One character of context is too little, so every
         transition can be locally likely while the complete name is implausible. The model can generate novel
-        strings, but it can also reproduce training names—<code>dan</code> is one example here. Sampling is not
+        strings, but it can also reproduce training names; <code>dan</code> is one example here. Sampling is not
         a novelty guarantee.</li>
       </ul>
 
@@ -205,7 +205,7 @@ for _ in range(5):
       <p>For a GPT-style model, pretraining repeatedly asks a transformer to predict the next token and
       adjusts its parameters when it is wrong. Large runs can involve trillions of tokens and billions of
       parameters; some frontier runs are estimated to cost tens to hundreds of millions of dollars. In
-      <span class="wkchip">Weeks 1–8</span> I will do this on one GPU—enough to encounter core optimization
+      <span class="wkchip">Weeks 1–8</span> I will do this on one GPU: enough to encounter core optimization
       failures such as unstable loss and bad learning-rate schedules, but not distributed-training failures.</p>
 
       <h3><span class="stage-no">03</span>Post-training</h3>
@@ -238,8 +238,7 @@ for _ in range(5):
 
       <h2 id="jobs">Why I spend six weeks on serving</h2>
 
-      <p>My background is systems and reliability, and inference is the part I most want to understand
-      deeply. Weeks 13–18 therefore form a six-week inference-and-operations block: decoding, KV-cache
+      <p>Inference is the part of the lifecycle I most want to understand deeply. Weeks 13–18 therefore form a six-week inference-and-operations block: decoding, KV-cache
       pressure, batching, quantization, latency, cost, and operating the resulting service. The earlier
       foundations stay necessary because serving behavior only makes sense when I understand the model being
       served.</p>
@@ -352,7 +351,7 @@ for _ in range(5):
         genBtn = document.getElementById("ntp-gen"), resetBtn = document.getElementById("ntp-reset"),
         memChk = document.getElementById("ntp-mem");
     if (!out) return;
-    var seq = [], ctx = 0, done = false, stopReason = null, timer = null;
+    var seq = [], ctx = 0, done = false, stopReason = null, timer = null, flipT = null;
 
     var bars = [];
     for (var b = 0; b < 27; b++) {
@@ -402,6 +401,7 @@ for _ in range(5):
 
     function step() {
       if (done) return;
+      if (flipT) { clearTimeout(flipT); flipT = null; }
       var from = ctx, row = P[from], r = Math.random(), acc = 0, pick = 26;
       for (var j = 0; j < 27; j++) { acc += row[j]; if (r < acc) { pick = j; break; } }
       if (pick === 0) {
@@ -412,10 +412,12 @@ for _ in range(5):
         done = true; stopReason = "limit"; render(pick, from); return;
       }
       render(pick, from);
+      flipT = setTimeout(function () { flipT = null; if (!done) render(-1); }, 700);
     }
 
     function reset() {
       if (timer) { clearInterval(timer); timer = null; }
+      if (flipT) { clearTimeout(flipT); flipT = null; }
       seq = []; ctx = 0; done = false; stopReason = null; render(-1, ctx);
     }
 
