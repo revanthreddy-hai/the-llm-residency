@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resources · The LLM Residency</title>
+<meta name="description" content="The shelf behind the notes: the papers, books, articles, and people these residency notes lean on. Small on purpose, updated as the weeks ship.">
+<meta property="og:title" content="Resources · The LLM Residency">
+<meta property="og:description" content="Papers, books, articles, and people worth following on LLMs. A living list, small on purpose.">
+<meta property="og:type" content="website">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='%23f9f9f7'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/atom+xml" title="The LLM Residency" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container">
+    <a class="wordmark" href="index.html">The LLM Residency</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="resources.html" class="nav-hide-m" aria-current="page">Resources</a>
+      <a href="week00a.html" class="nav-hide-m">Week 0</a>
+      <a href="feed.xml" class="nav-hide-m">RSS</a>
+      <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <header class="article-header">
+      <p class="kicker">The shelf · a living page</p>
+      <h1>Resources</h1>
+      <p class="dek">The papers, books, articles, and people these notes lean on. Small on purpose: nothing
+      goes on this page unless it earns a place in an actual week of the residency. It grows as the weeks ship.</p>
+      <div class="article-meta">
+        <span>Last verified 2026-07-22</span>
+        <span>Every link checked</span>
+      </div>
+    </header>
+
+    <div class="res">
+
+      <div class="res-tabs" role="tablist" aria-label="Resource type">
+        <a role="tab" id="tab-papers" href="#papers" aria-controls="papers" aria-selected="true">Papers</a>
+        <a role="tab" id="tab-books" href="#books" aria-controls="books" aria-selected="false" tabindex="-1">Books</a>
+        <a role="tab" id="tab-blogs" href="#blogs" aria-controls="blogs" aria-selected="false" tabindex="-1">Blogs</a>
+        <a role="tab" id="tab-people" href="#people" aria-controls="people" aria-selected="false" tabindex="-1">People to follow</a>
+      </div>
+
+      <!-- ================= PAPERS ================= -->
+      <section class="res-panel" id="papers" role="tabpanel" aria-labelledby="tab-papers">
+        <p class="res-note">Twelve papers carry most of this course. Read them in course order; each one is
+        introduced properly in its week.</p>
+
+        <h3 class="res-group">Foundations</h3>
+        <ul class="res-list">
+          <li>
+            <a href="https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf">A Neural Probabilistic Language Model</a>
+            <span class="meta">Bengio, Ducharme, Vincent, Jauvin · 2003 · <span class="wkchip">Week 1</span></span>
+            <p>The blueprint for every neural language model since. Week 1 quietly reenacts it.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/1508.07909">Neural Machine Translation of Rare Words with Subword Units</a>
+            <span class="meta">Sennrich, Haddow, Birch · 2016 · <span class="wkchip">Week 2</span></span>
+            <p>Where BPE tokenization enters modern NLP. You build it from scratch in Week 2.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>
+            <span class="meta">Vaswani et al. · 2017 · <span class="wkchip">Weeks 4–5</span></span>
+            <p>The transformer. Read it after Week 4 and it stops being intimidating.</p>
+          </li>
+          <li>
+            <a href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">Language Models are Unsupervised Multitask Learners</a>
+            <span class="meta">Radford et al. (GPT-2) · 2019 · <span class="wkchip">Week 5</span></span>
+            <p>The recipe you assemble in Week 5, scaled up until it startled everyone.</p>
+          </li>
+        </ul>
+
+        <h3 class="res-group">Training and scale</h3>
+        <ul class="res-list">
+          <li>
+            <a href="https://arxiv.org/abs/2001.08361">Scaling Laws for Neural Language Models</a>
+            <span class="meta">Kaplan et al. · 2020 · <span class="wkchip">Week 6</span></span>
+            <p>Loss falls predictably with compute, data, and parameters. The paper that made LLMs an engineering discipline.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/2203.15556">Training Compute-Optimal Large Language Models</a>
+            <span class="meta">Hoffmann et al. (Chinchilla) · 2022 · <span class="wkchip">Week 6</span></span>
+            <p>The correction: most models were undertrained on data. Changed how everyone sizes runs.</p>
+          </li>
+        </ul>
+
+        <h3 class="res-group">Post-training</h3>
+        <ul class="res-list">
+          <li>
+            <a href="https://arxiv.org/abs/2203.02155">Training Language Models to Follow Instructions with Human Feedback</a>
+            <span class="meta">Ouyang et al. (InstructGPT) · 2022 · <span class="wkchip">Weeks 9 · 11</span></span>
+            <p>The SFT plus RLHF pipeline that turned completion engines into assistants.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/2106.09685">LoRA: Low-Rank Adaptation of Large Language Models</a>
+            <span class="meta">Hu et al. · 2021 · <span class="wkchip">Week 10</span></span>
+            <p>Fine-tuning in a low-rank subspace. The reason one rented GPU is enough to matter.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/2305.18290">Direct Preference Optimization</a>
+            <span class="meta">Rafailov et al. · 2023 · <span class="wkchip">Week 11</span></span>
+            <p>Preference tuning without a reward model or RL loop. The workhorse you can actually run.</p>
+          </li>
+        </ul>
+
+        <h3 class="res-group">Inference and serving</h3>
+        <ul class="res-list">
+          <li>
+            <a href="https://arxiv.org/abs/2205.14135">FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</a>
+            <span class="meta">Dao et al. · 2022 · <span class="wkchip">Week 13</span></span>
+            <p>Attention rebuilt around the memory hierarchy. The mindset shift behind all fast inference.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>
+            <span class="meta">Kwon et al. (vLLM) · 2023 · <span class="wkchip">Week 14</span></span>
+            <p>Virtual memory for the KV cache. The paper behind the serving engine you will use.</p>
+          </li>
+          <li>
+            <a href="https://arxiv.org/abs/2211.17192">Fast Inference from Transformers via Speculative Decoding</a>
+            <span class="meta">Leviathan, Kalman, Matias · 2023 · <span class="wkchip">Week 15</span></span>
+            <p>A small model drafts, a big model verifies. Free speed, once you see why it is exact.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= BOOKS ================= -->
+      <section class="res-panel" id="books" role="tabpanel" aria-labelledby="tab-books">
+        <ul class="res-list">
+          <li>
+            <a href="https://www.manning.com/books/build-a-large-language-model-from-scratch">Build a Large Language Model (From Scratch)</a>
+            <span class="meta">Sebastian Raschka · Manning · 2024</span>
+            <p>The closest cousin to Phase 1 of these notes: a GPT built end to end in plain PyTorch.</p>
+          </li>
+          <li>
+            <a href="https://udlbook.github.io/udlbook/">Understanding Deep Learning</a>
+            <span class="meta">Simon J. D. Prince · MIT Press · free online</span>
+            <p>Rigorous, modern, beautifully figured. The reference when you want the math done properly.</p>
+          </li>
+          <li>
+            <a href="https://d2l.ai/">Dive into Deep Learning</a>
+            <span class="meta">Zhang, Lipton, Li, Smola · free online</span>
+            <p>Code-first and runnable everywhere. Good bridge material for Weeks 0 through 6.</p>
+          </li>
+          <li>
+            <a href="https://www.deeplearningbook.org/">Deep Learning</a>
+            <span class="meta">Goodfellow, Bengio, Courville · MIT Press · free online</span>
+            <p>The classic foundations text. Consult it like an encyclopedia, not a syllabus.</p>
+          </li>
+          <li>
+            <a href="https://github.com/HandsOnLLM/Hands-On-Large-Language-Models">Hands-On Large Language Models</a>
+            <span class="meta">Jay Alammar, Maarten Grootendorst · O’Reilly · 2024</span>
+            <p>Visual and applied. Strongest on using and adapting models rather than pretraining them.</p>
+          </li>
+          <li>
+            <a href="https://github.com/stas00/ml-engineering">Machine Learning Engineering Open Book</a>
+            <span class="meta">Stas Bekman · free, continuously updated</span>
+            <p>Battle notes from very large training and inference fleets. The spine weeks lean on this.</p>
+          </li>
+          <li>
+            <a href="https://books.google.com/books/about/Hands_On_LLM_Serving_and_Optimization.html?id=cSTB0QEACAAJ">Hands-On LLM Serving and Optimization: Hosting LLMs at Scale</a>
+            <span class="meta">Chi Wang, Peiheng Hu · O’Reilly · 2026</span>
+            <p>Deploying and optimizing LLMs at scale: latency, throughput, and cost. The book closest to the Weeks 13–18 core.</p>
+          </li>
+          <li>
+            <a href="https://github.com/cfregly/ai-performance-engineering">AI Systems Performance Engineering</a>
+            <span class="meta">Chris Fregly · O’Reilly · 2025</span>
+            <p>Full-stack performance tuning for training and inference: GPUs, CUDA, and PyTorch. Link goes to the book’s code and labs.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= ARTICLES ================= -->
+      <section class="res-panel" id="blogs" role="tabpanel" aria-labelledby="tab-blogs">
+        <ul class="res-list">
+          <li>
+            <a href="https://karpathy.ai/zero-to-hero.html">Neural Networks: Zero to Hero</a>
+            <span class="meta">Andrej Karpathy · video series</span>
+            <p>The best companion material on the internet for Weeks 0 through 5. Watch alongside the labs.</p>
+          </li>
+          <li>
+            <a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a>
+            <span class="meta">Jay Alammar</span>
+            <p>The visual walkthrough that unlocked the architecture for a generation of engineers.</p>
+          </li>
+          <li>
+            <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>
+            <span class="meta">Harvard NLP</span>
+            <p>The original paper, annotated line by line with working code.</p>
+          </li>
+          <li>
+            <a href="https://bbycroft.net/llm">LLM Visualization</a>
+            <span class="meta">Brendan Bycroft</span>
+            <p>A 3D, step-by-step tour through an actual GPT forward pass. Set aside an hour.</p>
+          </li>
+          <li>
+            <a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a>
+            <span class="meta">Polo Club, Georgia Tech</span>
+            <p>An interactive GPT-2 running live in your browser, every tensor inspectable.</p>
+          </li>
+          <li>
+            <a href="https://kipp.ly/transformer-inference-arithmetic/">Transformer Inference Arithmetic</a>
+            <span class="meta">kipply</span>
+            <p>Back-of-envelope math for latency, memory, and cost. Week 13 in blog form.</p>
+          </li>
+          <li>
+            <a href="https://lilianweng.github.io/">Lil’Log</a>
+            <span class="meta">Lilian Weng</span>
+            <p>Survey-grade deep dives. When a topic here needs more, her post on it is usually the next stop.</p>
+          </li>
+          <li>
+            <a href="https://simonwillison.net/">Simon Willison’s Weblog</a>
+            <span class="meta">Simon Willison</span>
+            <p>What is actually happening in LLMs, tested by hand, several times a week.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= PEOPLE ================= -->
+      <section class="res-panel" id="people" role="tabpanel" aria-labelledby="tab-people">
+        <p class="res-note">Genuine builders and researchers who share real signal. Follow for the work,
+        verify like always; a follow is not an endorsement of every take.</p>
+        <ul class="res-list res-people">
+          <li><a href="https://x.com/karpathy">@karpathy</a><span class="meta">Andrej Karpathy</span><p>Teaches the whole field by building it in public.</p></li>
+          <li><a href="https://x.com/rasbt">@rasbt</a><span class="meta">Sebastian Raschka</span><p>Patient, precise digests of LLM research and practice.</p></li>
+          <li><a href="https://x.com/lilianweng">@lilianweng</a><span class="meta">Lilian Weng</span><p>Frontier topics with survey-grade rigor.</p></li>
+          <li><a href="https://x.com/chipro">@chipro</a><span class="meta">Chip Huyen</span><p>ML systems and AI engineering with a production lens.</p></li>
+          <li><a href="https://x.com/simonw">@simonw</a><span class="meta">Simon Willison</span><p>Skeptical, hands-on, ships and tests everything he discusses.</p></li>
+          <li><a href="https://x.com/tri_dao">@tri_dao</a><span class="meta">Tri Dao</span><p>FlashAttention author; the kernels and inference frontier, firsthand.</p></li>
+          <li><a href="https://x.com/_jasonwei">@_jasonwei</a><span class="meta">Jason Wei</span><p>Scaling and reasoning research, explained plainly.</p></li>
+          <li><a href="https://x.com/DrJimFan">@DrJimFan</a><span class="meta">Jim Fan</span><p>Agents and frontier research commentary from inside the field.</p></li>
+          <li><a href="https://x.com/jeremyphoward">@jeremyphoward</a><span class="meta">Jeremy Howard</span><p>Pedagogy-first deep learning; fast.ai’s founder.</p></li>
+          <li><a href="https://x.com/JayAlammar">@JayAlammar</a><span class="meta">Jay Alammar</span><p>Visual explanations of hard ideas, consistently excellent.</p></li>
+          <li><a href="https://x.com/StasBekman">@StasBekman</a><span class="meta">Stas Bekman</span><p>Large-scale training and performance engineering, in the open.</p></li>
+          <li><a href="https://x.com/swyx">@swyx</a><span class="meta">swyx</span><p>The applied AI engineering zeitgeist, curated and honest.</p></li>
+        </ul>
+        <p class="res-note">Project accounts worth the follow: <a href="https://x.com/vllm_project">@vllm_project</a>,
+        <a href="https://x.com/lmsysorg">@lmsysorg</a>, and <a href="https://x.com/huggingface">@huggingface</a>.</p>
+      </section>
+
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="fm">The LLM Residency</span>
+    <nav aria-label="Footer">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="resources.html">Resources</a>
+      <a href="index.html#method">How it’s checked</a>
+      <a href="index.html#subscribe">Subscribe</a>
+      <a href="feed.xml">RSS</a>
+    </nav>
+    <p class="fine">Written from inside a real industrial LLM training residency, on open models and public sources.
+    This journal is personal. The notes, opinions, and mistakes are mine, not my employer’s.
+    © 2026 The LLM Residency.</p>
+  </div>
+</footer>
+<script>
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll(".res-tabs [role=tab]"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll(".res-panel"));
+    if (!tabs.length || !panels.length) return;
+
+    function activate(id, setHash) {
+      tabs.forEach(function (t) {
+        var on = t.getAttribute("aria-controls") === id;
+        t.setAttribute("aria-selected", on ? "true" : "false");
+        t.tabIndex = on ? 0 : -1;
+      });
+      panels.forEach(function (p) { p.hidden = p.id !== id; });
+      if (setHash && history.replaceState) history.replaceState(null, "", "#" + id);
+    }
+
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function (e) {
+        e.preventDefault();
+        activate(t.getAttribute("aria-controls"), true);
+      });
+      t.addEventListener("keydown", function (e) {
+        var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        var n = tabs[(i + d + tabs.length) % tabs.length];
+        n.focus();
+        activate(n.getAttribute("aria-controls"), true);
+      });
+    });
+
+    var start = location.hash.slice(1);
+    var known = panels.some(function (p) { return p.id === start; });
+    activate(known ? start : "papers", false);
+    if (known) requestAnimationFrame(function () {
+      document.querySelector(".res-tabs").scrollIntoView({ block: "start" });
+    });
+  })();
+</script>
+</body>
+</html>

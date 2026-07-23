@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The LLM Residency: from zero to serving, written down every week</title>
+<meta name="description" content="Notes from inside an LLM model-training residency. The full cycle from zero: training, fine-tuning, evals, then deepest in inference, serving, and optimization. One essay, one lab, one honest log, every week.">
+<meta property="og:title" content="The LLM Residency">
+<meta property="og:description" content="LLM Model Training Residency: from zero to serving. The full cycle, written down every week. Essays, labs that run, honest logs.">
+<meta property="og:type" content="website">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='%23f9f9f7'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/atom+xml" title="The LLM Residency" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container">
+    <a class="wordmark" href="index.html">The LLM Residency</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="#curriculum">Curriculum</a>
+      <a href="resources.html" class="nav-hide-m">Resources</a>
+      <a href="week00a.html" class="nav-hide-m">Week 0</a>
+      <a href="feed.xml" class="nav-hide-m">RSS</a>
+      <a href="#subscribe" class="nav-cta">Subscribe</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="kicker">A learning journal · six months of working notes</p>
+          <h1>From zero to serving. <em>The full cycle, written down every&nbsp;week.</em></h1>
+          <p class="dek">
+            For the next six months I’m writing notes from our internal model-training residency: the
+            complete LLM lifecycle, from zero. Each week: one essay, one runnable lab, one honest log of
+            what broke, with real latency budgets and real GPU bills.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="week00a.html">Read Week 0 · 9 min</a>
+            <a class="link-arrow" href="#curriculum">View the 26-week roadmap →</a>
+          </div>
+          <p class="hero-note">Not a course. I’m parking my LLM journey as I learn.</p>
+        </div>
+        <a class="hero-latest" href="week00a.html" aria-label="Latest entry: The Map of the Territory">
+          <p class="kicker">Latest · Week 0</p>
+          <h2>The Map of the Territory</h2>
+          <p>Train your first model in thirty minutes.</p>
+          <span class="read">Read →</span>
+        </a>
+      </div>
+
+      <p class="progress"><span class="now">Week 0 of 26 published</span><span aria-hidden="true">·</span><span>Next: Tensors, Gradients, and Your Toolchain</span></p>
+    </div>
+  </section>
+
+  <!-- ================= PIPELINE ================= -->
+  <section class="section" id="pipeline" aria-labelledby="pipeline-title">
+    <div class="container">
+      <p class="kicker">The territory</p>
+      <h2 class="section-title" id="pipeline-title">The six stages of an LLM system</h2>
+      <p class="section-dek">
+        A large language model is a single system: data goes in one end, a running product comes out
+        the other. Nothing in between is magic; it is engineering you can learn, stage by stage.
+      </p>
+
+      <div class="pipeline">
+        <div class="stage">
+          <span class="idx">01</span>
+          <h3>Data</h3>
+          <p>Filtering, deduplication, and mixing: the unglamorous work that moves quality most.</p>
+          <span class="weeks">Week 7</span>
+        </div>
+        <div class="stage">
+          <span class="idx">02</span>
+          <h3>Pretraining</h3>
+          <p>A transformer, trillions of next-token predictions, and the discipline of not wasting GPU time.</p>
+          <span class="weeks">Weeks 1–8</span>
+        </div>
+        <div class="stage">
+          <span class="idx">03</span>
+          <h3>Post-training</h3>
+          <p>From completion engine to assistant: SFT, LoRA, preferences, distillation.</p>
+          <span class="weeks">Weeks 9–12</span>
+        </div>
+        <div class="stage">
+          <span class="idx">04</span>
+          <h3>Evals</h3>
+          <p>The easiest place to fool yourself, treated as an engineering discipline with error bars.</p>
+          <span class="weeks">Weeks 8 · 20</span>
+        </div>
+        <div class="stage is-core">
+          <span class="idx">05</span>
+          <h3>Inference</h3>
+          <p>KV caches, batching, quantization, GPU economics: the part these notes go deepest on.</p>
+          <span class="weeks">Weeks 13–17</span>
+        </div>
+        <div class="stage is-core">
+          <span class="idx">06</span>
+          <h3>Operations</h3>
+          <p>SLOs, load, incidents at 2 a.m. Models are software in production; running them is a reliability craft.</p>
+          <span class="weeks">Weeks 18+</span>
+        </div>
+      </div>
+
+      <p class="pipeline-caption">
+        <strong>The specialization spine:</strong> weeks 13–18 form a dedicated six-week inference &amp;
+        operations core, the deepest treatment these notes give any stage. Most courses compress it into a
+        single lecture; here it is where the real work happens.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= WEEKLY ARTIFACTS ================= -->
+  <section class="section" id="weekly" aria-labelledby="weekly-title">
+    <div class="container">
+      <p class="kicker">The rhythm</p>
+      <h2 class="section-title" id="weekly-title">What I publish each week</h2>
+      <p class="section-dek">Each week ships with something you can run, break, and keep.</p>
+
+      <div class="artifact-grid">
+        <div class="artifact">
+          <span class="tag">Read · ~15 min</span>
+          <h3>The flagship essay</h3>
+          <p>One concept, first principles to production. Every tensor shape-annotated, every claim cited, a skip test up top for readers in a hurry.</p>
+        </div>
+        <div class="artifact">
+          <span class="tag">Build · ~2–4 h</span>
+          <h3>The lab</h3>
+          <p>Autograded with pytest: it tells you your attention head is wrong <em>before</em> you waste a training run. Runs on Colab or one consumer GPU.</p>
+        </div>
+        <div class="artifact">
+          <span class="tag">Keep</span>
+          <h3>The reference card</h3>
+          <p>One page, zero narrative: the KV-cache sizing formula, the LoRA decision card, the eval-pitfalls checklist. The thing you bookmark.</p>
+        </div>
+        <div class="artifact">
+          <span class="tag">Follow</span>
+          <h3>The resident’s log</h3>
+          <p>I’m going through the residency as I write. You get the diary: failures, dead ends, and hours included.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ROUTE ================= -->
+  <section class="section" id="route" aria-labelledby="route-title">
+    <div class="container">
+      <p class="kicker">The route</p>
+      <h2 class="section-title" id="route-title">The six-month plan</h2>
+      <p class="section-dek">Each leg ends with an artifact a senior engineer could audit.</p>
+
+      <div class="route">
+        <div class="route-row">
+          <h3>The on-ramp</h3>
+          <span class="weeks">WEEK 0</span>
+          <p>The map of the territory, tensors and gradients without tears, your toolchain, and a model you train on day one.</p>
+        </div>
+        <div class="route-row">
+          <h3>Foundations</h3>
+          <span class="weeks">WEEKS 1–8</span>
+          <p>Tokenization, attention, the transformer, training dynamics, data, evals. Ends with a GPT you trained from scratch, plus the audit-ready training report.</p>
+        </div>
+        <div class="route-row">
+          <h3>Adaptation</h3>
+          <span class="weeks">WEEKS 9–12</span>
+          <p>SFT, LoRA, preference optimization, distillation. Your base model becomes an assistant you can talk to, with the eval regressions to prove nothing broke.</p>
+        </div>
+        <div class="route-row">
+          <h3>The inference core</h3>
+          <span class="weeks">WEEKS 13–18</span>
+          <p>KV cache, batching, quantization, speculative decoding, GPU cost math, multi-GPU serving, incident drills. Ends with your model served under a stated SLO, and the cost-per-million-tokens report.</p>
+        </div>
+        <div class="route-row">
+          <h3>Capstone</h3>
+          <span class="weeks">WEEKS 19–26</span>
+          <p>Safety guardrails, a benchmark worth trusting, then a scoped capstone built in public, through demo day and a final self-audit against all seventeen competencies.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CURRICULUM ================= -->
+  <section class="section" id="curriculum" aria-labelledby="curriculum-title">
+    <div class="container">
+      <p class="kicker">The curriculum</p>
+      <h2 class="section-title" id="curriculum-title">Every week, mapped</h2>
+      <p class="section-dek">Tap any week for the core idea and its lab. Weeks marked <span class="chip chip-int">interactive</span> ship a standalone explorable; <span class="chip chip-mile">milestone</span> weeks end with a portfolio artifact. Comfortable programming assumed; everything else is on the syllabus. Plan on about ten hours a week.</p>
+
+      <!-- ---- Week 0 ---- -->
+      <div class="phase">
+        <div class="phase-head">
+          <h3><span class="phase-label">On-ramp</span>Week 0 · published before the program begins</h3>
+          <span class="weeks">2 POSTS</span>
+        </div>
+
+        <a class="week-link" href="week00a.html">
+          <span class="no">W0·A</span>
+          <span class="t">The Map of the Territory</span>
+          <span class="chips"><span class="chip chip-mile">published draft</span></span>
+          <span class="go">Read →</span>
+        </a>
+
+        <details class="week">
+          <summary>
+            <span class="no">W0·B</span>
+            <span class="t">Tensors, Gradients, and Your Toolchain</span>
+            <span class="chips"></span>
+          </summary>
+          <div class="body">
+            <p class="aha">Shapes are the whole game, and a derivative is just a sensitivity dial.</p>
+            <p class="lab"><strong>LAB</strong> · Ten shape-bug fixes, then build micrograd-lite: a working autograd engine in ~100 lines.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- ---- Phase 1 ---- -->
+      <div class="phase">
+        <div class="phase-head">
+          <h3><span class="phase-label">Phase 1</span>Foundations</h3>
+          <span class="weeks">WEEKS 1–8</span>
+        </div>
+
+        <details class="week">
+          <summary><span class="no">W01</span><span class="t">A Language Model, End to End</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Next-token prediction is the whole trick; loss is just surprise, measured.</p>
+            <p class="lab"><strong>LAB</strong> · Count-based bigram → neural bigram → MLP, with held-out evaluation from day one.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W02</span><span class="t">How Text Becomes Numbers</span><span class="chips"><span class="chip chip-int">interactive</span></span></summary>
+          <div class="body">
+            <p class="aha">Tokenizers explain half of LLM weirdness: arithmetic, spelling, multilingual cost.</p>
+            <p class="lab"><strong>LAB</strong> · Build BPE from scratch and train it on a real corpus. Ships with the Tokenizer Playground.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W03</span><span class="t">Embeddings: The Geometry of Meaning</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Meaning is direction in vector space.</p>
+            <p class="lab"><strong>LAB</strong> · Train embeddings; probe analogies and, more instructively, their failure modes.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W04</span><span class="t">Attention From First Principles</span><span class="chips"><span class="chip chip-int">interactive</span></span></summary>
+          <div class="body">
+            <p class="aha">Attention is a differentiable lookup: Q asks, K matches, V delivers.</p>
+            <p class="lab"><strong>LAB</strong> · One causal head from scratch; visualize its weights on real text. Ships with the Attention Visualizer.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W05</span><span class="t">Assembling the Transformer</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">The residual stream is a shared bus; every block reads it, modifies it, writes it back.</p>
+            <p class="lab"><strong>LAB</strong> · Head → block → GPT-2-small shape; RoPE vs learned positions; count the parameters by hand.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W06</span><span class="t">Training It For Real</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Loss curves are dashboards; most training failures have recognizable signatures.</p>
+            <p class="lab"><strong>LAB</strong> · Train on TinyStories; find four planted bugs from the curves alone; GPU memory accounting: estimate first, then measure.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W07</span><span class="t">Data Is the Actual Model</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Filtering, deduplication, and mixing move quality more than architecture does.</p>
+            <p class="lab"><strong>LAB</strong> · Build a mini pipeline; measure exactly what dirty data does to your Week-6 model.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W08</span><span class="t">Evaluation: How To Not Fool Yourself</span><span class="chips"><span class="chip chip-mile">milestone</span></span></summary>
+          <div class="body">
+            <p class="aha">Benchmarks have anatomy; variance and contamination are real, and mostly unexamined.</p>
+            <p class="lab"><strong>LAB</strong> · Build the eval harness you’ll use all course; run one benchmark ten times and study the spread. <strong>MILESTONE</strong> · “I trained a GPT”: your audit-ready training report.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- ---- Phase 2 ---- -->
+      <div class="phase">
+        <div class="phase-head">
+          <h3><span class="phase-label">Phase 2</span>Adaptation &amp; the Inference Core</h3>
+          <span class="weeks">WEEKS 9–16</span>
+        </div>
+
+        <details class="week">
+          <summary><span class="no">W09</span><span class="t">Base Model → Assistant: SFT</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Assistants are a persona trained on top; chat templates are load-bearing.</p>
+            <p class="lab"><strong>LAB</strong> · SFT an open 0.5–3B model on a public instruct set; get loss masking right.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W10</span><span class="t">LoRA, Derived</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Fine-tuning lives in a low-rank subspace; one rented GPU is enough to matter.</p>
+            <p class="lab"><strong>LAB</strong> · LoRA vs full fine-tune: quality, VRAM, cost, with regressions caught by your Week-8 harness.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W11</span><span class="t">Preference Optimization</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">RLHF is a pipeline, not an algorithm; DPO is the workhorse you can actually run.</p>
+            <p class="lab"><strong>LAB</strong> · DPO on public preference data; before/after evals, plus a sycophancy check.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W12</span><span class="t">Distillation: Why Products Shrink Models</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">A big model can teach a small one; latency-bound products live on this.</p>
+            <p class="lab"><strong>LAB</strong> · Distill your SFT model into a smaller one; measure the gap honestly.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W13</span><span class="t">Inference I: The KV Cache</span><span class="chips"><span class="chip chip-int">interactive</span></span></summary>
+          <div class="body">
+            <p class="aha">Generation is a memory-bandwidth problem wearing a compute costume.</p>
+            <p class="lab"><strong>LAB</strong> · Derive the KV-cache sizing formula; verify it against measurement within 5%; find the OOM cliff. Ships with the KV-Cache Visualizer.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W14</span><span class="t">Inference II: Batching &amp; PagedAttention</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Throughput is manufactured by batching; paged KV is virtual memory for attention.</p>
+            <p class="lab"><strong>LAB</strong> · vLLM vs a naive generation loop: TTFT, ITL, and throughput under real load.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W15</span><span class="t">Inference III: Quantization &amp; Speculative Decoding</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Quality-per-dollar is an engineering surface, not a compromise.</p>
+            <p class="lab"><strong>LAB</strong> · Quantize weights and KV (int8 / int4 / FP8); add a draft model; measure everything.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W16</span><span class="t">Inference IV: GPUs and Money</span><span class="chips"><span class="chip chip-int">interactive</span> <span class="chip chip-mile">milestone</span></span></summary>
+          <div class="body">
+            <p class="aha">Roofline thinking: know whether you’re compute-bound or memory-bound before you optimize.</p>
+            <p class="lab"><strong>LAB</strong> · GPU anatomy, MFU, dollars-per-million-tokens. <strong>MILESTONE</strong> · your fine-tuned model, served under a stated SLO, with the cost / latency / quality report. Ships with the Roofline &amp; Cost Explorer.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- ---- Phase 3 ---- -->
+      <div class="phase">
+        <div class="phase-head">
+          <h3><span class="phase-label">Phase 3</span>Scale, Safety &amp; Capstone</h3>
+          <span class="weeks">WEEKS 17–26</span>
+        </div>
+
+        <details class="week">
+          <summary><span class="no">W17</span><span class="t">Distributed Inference</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">One GPU stops being enough exactly when the math says so.</p>
+            <p class="lab"><strong>LAB</strong> · Tensor-parallel serving on two GPUs; disaggregated prefill/decode; routing.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W18</span><span class="t">Operating a Serving Stack</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Serving is an SRE problem: SLOs, saturation, and drills, not vibes.</p>
+            <p class="lab"><strong>LAB</strong> · Dashboards, a load test, and three incident drills: OOM, cache thrash, silent regression.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W19</span><span class="t">Safety Systems for High-Stakes Domains</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Guardrails are classifiers with risk budgets.</p>
+            <p class="lab"><strong>LAB</strong> · Build a guardrail classifier; defend its false-positive / false-negative tradeoff.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W20</span><span class="t">Benchmarks Worth Trusting (Build One)</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Construct validity beats leaderboard theater.</p>
+            <p class="lab"><strong>LAB</strong> · Design a mini-benchmark with contamination controls and variance bars.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W21</span><span class="t">Choosing a Capstone: Scoping Under Uncertainty</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Sizing experiments and kill criteria are the senior skill.</p>
+            <p class="lab"><strong>LAB</strong> · Your capstone one-pager: baseline, budget, kill criteria, a thread that started back in Week 8.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W22</span><span class="t">Capstone Build-Log I</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Real experiments, honestly reported.</p>
+            <p class="lab"><strong>LAB</strong> · Hypotheses → runs → ablations → failures, with costs attached.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W23</span><span class="t">Capstone Build-Log II</span><span class="chips"><span class="chip chip-elec">elective slot</span></span></summary>
+          <div class="body">
+            <p class="aha">Keep building, or take the speech elective.</p>
+            <p class="lab"><strong>LAB</strong> · Continue the capstone, or the Speech/ASR elective: Whisper fine-tuning, word-error rate, streaming latency budgets.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W24</span><span class="t">Capstone Build-Log III</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">Final ablations; evaluate against your own rubric.</p>
+            <p class="lab"><strong>LAB</strong> · Close the experiment loop and freeze the results.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W25</span><span class="t">Demo Day</span><span class="chips"><span class="chip chip-mile">milestone</span></span></summary>
+          <div class="body">
+            <p class="aha">If a senior engineer can’t audit it, it isn’t done.</p>
+            <p class="lab"><strong>MILESTONE</strong> · The capstone report and demo artifact, presented.</p>
+          </div>
+        </details>
+        <details class="week">
+          <summary><span class="no">W26</span><span class="t">Graduation: The Whole Map, Revisited</span><span class="chips"></span></summary>
+          <div class="body">
+            <p class="aha">You now read the field’s papers as an insider.</p>
+            <p class="lab"><strong>LAB</strong> · Self-audit against all seventeen competencies; your year-2 reading system; the role map: inference, training, or applied.</p>
+          </div>
+        </details>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= COMPETENCIES ================= -->
+  <section class="section" id="competencies" aria-labelledby="comp-title">
+    <div class="container">
+      <p class="kicker">The outcome</p>
+      <h2 class="section-title" id="comp-title">Seventeen things you’ll be able to do</h2>
+      <p class="section-dek">Each one is observable, and each is assessed by a lab you’ll have completed.</p>
+
+      <div class="comp-grid">
+        <div class="comp-col">
+          <div class="comp-label"><span>Foundations</span><span class="count">5</span></div>
+          <ul>
+            <li>Train a transformer LM from scratch to a target loss</li>
+            <li>Diagnose training failures from curves and logs</li>
+            <li>Build a data pipeline and quantify its effect</li>
+            <li>Build and train a tokenizer; explain its consequences</li>
+            <li>Build an eval harness; quantify variance and contamination</li>
+          </ul>
+        </div>
+        <div class="comp-col">
+          <div class="comp-label"><span>Adaptation</span><span class="count">3</span></div>
+          <ul>
+            <li>SFT + LoRA a model with regression discipline</li>
+            <li>Preference-optimize (DPO) and measure the side effects</li>
+            <li>Distill along a quality-per-dollar curve</li>
+          </ul>
+        </div>
+        <div class="comp-col is-core">
+          <div class="comp-label"><span>Inference · the spine</span><span class="count">7</span></div>
+          <ul>
+            <li>Derive KV-cache and memory math from first principles</li>
+            <li>Reason about prefill, decode, and batching</li>
+            <li>Quantize and speculative-decode with measured tradeoffs</li>
+            <li>Do GPU cost accounting: roofline, MFU, $/1M tokens</li>
+            <li>Serve under an SLO with load tests and rollback</li>
+            <li>Scale serving across GPUs</li>
+            <li>Operate: observability, SLO burn, incident drills</li>
+          </ul>
+        </div>
+        <div class="comp-col">
+          <div class="comp-label"><span>Integration</span><span class="count">2</span></div>
+          <ul>
+            <li>Ship safety guardrails under a stated risk budget</li>
+            <li>Scope, execute, and communicate an audit-ready capstone</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INTERACTIVES ================= -->
+  <section class="section" id="interactives" aria-labelledby="inter-title">
+    <div class="container">
+      <p class="kicker">Explorables</p>
+      <h2 class="section-title" id="inter-title">Interactive explainers</h2>
+      <p class="section-dek">Some concepts deserve more than a diagram. These ship as standalone interactive pages, free, alongside their week.</p>
+
+      <div class="inter-grid">
+        <div class="inter">
+          <svg class="glyph" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+            <rect x="4"  y="16" width="9"  height="9" rx="2" stroke="currentColor" stroke-width="2"/>
+            <rect x="16" y="16" width="6"  height="9" rx="2" stroke="currentColor" stroke-width="2" class="hl"/>
+            <rect x="25" y="16" width="11" height="9" rx="2" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <h3>Tokenizer Playground</h3>
+          <span class="wk">SHIPS WITH WEEK 2</span>
+          <p>Type anything; watch it split, merge, and cost tokens, and see why models can’t spell.</p>
+        </div>
+        <div class="inter">
+          <svg class="glyph" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+            <g fill="currentColor">
+              <circle cx="8" cy="8" r="2"/><circle cx="16" cy="8" r="2"/><circle cx="24" cy="8" r="2"/><circle cx="32" cy="8" r="2"/>
+              <circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/><circle cx="24" cy="16" r="2"/><circle cx="32" cy="16" r="2"/>
+              <circle cx="8" cy="32" r="2"/><circle cx="16" cy="32" r="2"/><circle cx="24" cy="32" r="2"/><circle cx="32" cy="32" r="2"/>
+            </g>
+            <g fill="currentColor" class="hl">
+              <circle cx="8" cy="24" r="2.6"/><circle cx="16" cy="24" r="2.6"/><circle cx="24" cy="24" r="2.6"/><circle cx="32" cy="24" r="2.6"/>
+            </g>
+          </svg>
+          <h3>Attention Visualizer</h3>
+          <span class="wk">SHIPS WITH WEEK 4</span>
+          <p>Real text, real weights: watch a head decide what to look at, token by token.</p>
+        </div>
+        <div class="inter">
+          <svg class="glyph" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+            <rect x="5" y="14" width="30" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+            <g fill="currentColor" class="hl">
+              <rect x="8" y="17" width="4" height="6" rx="1"/>
+              <rect x="14" y="17" width="4" height="6" rx="1"/>
+              <rect x="20" y="17" width="4" height="6" rx="1"/>
+            </g>
+          </svg>
+          <h3>KV-Cache Visualizer</h3>
+          <span class="wk">SHIPS WITH WEEK 13</span>
+          <p>Sliders for batch, context, and dtype; watch memory fill and find the OOM cliff yourself.</p>
+        </div>
+        <div class="inter">
+          <svg class="glyph" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+            <polyline points="6,31 21,13 34,13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="21" cy="13" r="3" fill="currentColor" class="hl"/>
+          </svg>
+          <h3>Roofline &amp; Cost Explorer</h3>
+          <span class="wk">SHIPS WITH WEEK 16</span>
+          <p>Pick a model and a GPU; see whether you’re compute- or memory-bound, and what a million tokens costs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= METHOD / STANDARD ================= -->
+  <section class="section" id="method" aria-labelledby="method-title">
+    <div class="container">
+      <p class="kicker">The standard</p>
+      <h2 class="section-title" id="method-title">How each post is checked</h2>
+      <p class="section-dek">I will inevitably get some things wrong. Each post links its sources, records when it was last checked, and publishes corrections openly.</p>
+
+      <div class="standard">
+        <div class="item">
+          <span class="n">01</span>
+          <h3>Expert review</h3>
+          <p>I try to get each essay reviewed by people already working in this field, from inside the residency or outside it.</p>
+        </div>
+        <div class="item">
+          <span class="n">02</span>
+          <h3>Code that runs, weekly</h3>
+          <p>Every lab is re-executed by CI every week. Nothing stays published that doesn’t run.</p>
+        </div>
+        <div class="item">
+          <span class="n">03</span>
+          <h3>Primary sources only</h3>
+          <p>Technical claims link to papers or official documentation.</p>
+        </div>
+        <div class="item">
+          <span class="n">04</span>
+          <h3>Corrections in public</h3>
+          <p>Errors get fixed in a public corrections log. Corrections are dated and remain visible.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SAMPLE ================= -->
+  <section class="section" id="sample" aria-labelledby="sample-title">
+    <div class="container">
+      <p class="kicker">Start here</p>
+      <h2 class="section-title" id="sample-title">Read the first post</h2>
+      <p class="section-dek">The map of the territory, and a language model you’ll train yourself in the next thirty minutes.</p>
+
+      <a class="sample-card" href="week00a.html">
+        <p class="kicker">Week 0 · Part A</p>
+        <h3>The Map of the Territory</h3>
+        <p class="excerpt">“Here is the claim this entire program stands on: there is no magic anywhere in the pipeline.
+        A large language model is one system with six stages, each of which is ordinary engineering: ambitious,
+        sometimes expensive, occasionally maddening, but ordinary.”</p>
+        <span class="read">Read Week 0a · about 9 minutes →</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ================= SUBSCRIBE ================= -->
+  <section class="subscribe" id="subscribe" aria-labelledby="subscribe-title">
+    <div class="container">
+      <p class="kicker">Subscribe</p>
+      <h2 class="section-title" id="subscribe-title">One email a week. Six months. No magic.</h2>
+      <p class="sub-dek">Each week’s essay, lab, and reference card in your inbox, plus the resident’s log from inside the program. Free. Unsubscribe anytime.</p>
+
+      <form class="sub-form" action="https://buttondown.com/api/emails/embed-subscribe/airre" method="post">
+        <label class="skip-link" for="sub-email">Email address</label>
+        <input id="sub-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
+        <button class="btn btn-primary" type="submit">Get Week 0</button>
+      </form>
+      <p class="sub-note">You’ll get one confirmation email first; click it and you’re in.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="fm">The LLM Residency</span>
+    <nav aria-label="Footer">
+      <a href="#curriculum">Curriculum</a>
+      <a href="resources.html">Resources</a>
+      <a href="week00a.html">Week 0</a>
+      <a href="#method">How it’s checked</a>
+      <a href="#subscribe">Subscribe</a>
+      <a href="feed.xml">RSS</a>
+    </nav>
+    <p class="fine">Written from inside a real industrial LLM training residency, on open models and public sources.
+    This journal is personal. The notes, opinions, and mistakes are mine, not my employer’s.
+    © 2026 The LLM Residency.</p>
+  </div>
+</footer>
+
+</body>
+</html>
