@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Resources · The LLM Residency</title>
-<meta name="description" content="The shelf behind the notes: the papers, books, articles, and people these residency notes lean on. Small on purpose, updated as the weeks ship.">
+<meta name="description" content="The shelf behind the notes: papers, books, blogs, courses, podcasts, and people these residency notes lean on. Small on purpose, updated as the weeks ship.">
 <meta property="og:title" content="Resources · The LLM Residency">
 <meta property="og:description" content="Papers, books, articles, and people worth following on LLMs. A living list, small on purpose.">
 <meta property="og:type" content="website">
@@ -39,7 +39,7 @@
     <header class="article-header">
       <p class="kicker">The shelf · a living page</p>
       <h1>Resources</h1>
-      <p class="dek">The papers, books, articles, and people these notes lean on. Small on purpose: nothing
+      <p class="dek">The papers, books, blogs, courses, podcasts, and people these notes lean on. Small on purpose: nothing
       goes on this page unless it earns a place in an actual week of the residency. It grows as the weeks ship.</p>
       <div class="article-meta">
         <span>Last verified 2026-07-22</span>
@@ -53,6 +53,8 @@
         <a role="tab" id="tab-papers" href="#papers" aria-controls="papers" aria-selected="true">Papers</a>
         <a role="tab" id="tab-books" href="#books" aria-controls="books" aria-selected="false" tabindex="-1">Books</a>
         <a role="tab" id="tab-blogs" href="#blogs" aria-controls="blogs" aria-selected="false" tabindex="-1">Blogs</a>
+        <a role="tab" id="tab-courses" href="#courses" aria-controls="courses" aria-selected="false" tabindex="-1">Courses</a>
+        <a role="tab" id="tab-podcasts" href="#podcasts" aria-controls="podcasts" aria-selected="false" tabindex="-1">Podcasts</a>
         <a role="tab" id="tab-people" href="#people" aria-controls="people" aria-selected="false" tabindex="-1">People to follow</a>
       </div>
 
@@ -188,11 +190,6 @@
       <section class="res-panel" id="blogs" role="tabpanel" aria-labelledby="tab-blogs">
         <ul class="res-list">
           <li>
-            <a href="https://karpathy.ai/zero-to-hero.html">Neural Networks: Zero to Hero</a>
-            <span class="meta">Andrej Karpathy · video series</span>
-            <p>Watch alongside the Weeks 0 through 5 labs; the overlap is deliberate.</p>
-          </li>
-          <li>
             <a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a>
             <span class="meta">Jay Alammar</span>
             <p>The visual walkthrough most people learn attention from; Week 4 pairs with it.</p>
@@ -226,6 +223,75 @@
             <a href="https://simonwillison.net/">Simon Willison’s Weblog</a>
             <span class="meta">Simon Willison</span>
             <p>What is happening in LLMs, tested by hand, several times a week.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= COURSES ================= -->
+      <section class="res-panel" id="courses" role="tabpanel" aria-labelledby="tab-courses">
+        <ul class="res-list">
+          <li>
+            <a href="https://cs336.stanford.edu/">CS336: Language Modeling from Scratch</a>
+            <span class="meta">Stanford · lectures and assignments public</span>
+            <p>The closest academic sibling to these notes; a full LLM built across a semester.</p>
+          </li>
+          <li>
+            <a href="https://karpathy.ai/zero-to-hero.html">Neural Networks: Zero to Hero</a>
+            <span class="meta">Andrej Karpathy · free video series</span>
+            <p>Everything built by hand on video; Weeks 0 through 5 walk beside it.</p>
+          </li>
+          <li>
+            <a href="https://course.fast.ai/">Practical Deep Learning for Coders</a>
+            <span class="meta">fast.ai · Jeremy Howard</span>
+            <p>Code-first deep learning; a gentler parallel track through Phase 1.</p>
+          </li>
+          <li>
+            <a href="https://huggingface.co/learn/llm-course/chapter1/1">Hugging Face LLM Course</a>
+            <span class="meta">Hugging Face · free</span>
+            <p>Tokenizers, fine-tuning, and the library stack several labs also use.</p>
+          </li>
+          <li>
+            <a href="https://github.com/gpu-mode/lectures">GPU MODE Lectures</a>
+            <span class="meta">community lecture series</span>
+            <p>GPU programming and kernels; background for the inference weeks.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================= PODCASTS ================= -->
+      <section class="res-panel" id="podcasts" role="tabpanel" aria-labelledby="tab-podcasts">
+        <p class="res-note">Podcasts are RSS feeds with audio, so any podcast app finds these by name. All six were
+        publishing new episodes when this page was last verified.</p>
+        <ul class="res-list">
+          <li>
+            <a href="https://www.latent.space/">Latent Space</a>
+            <span class="meta">swyx, Alessio Fanelli</span>
+            <p>Interviews with the people building applied AI: inference, agents, evals. Closest to this site’s lane.</p>
+          </li>
+          <li>
+            <a href="https://www.dwarkesh.com/">Dwarkesh Podcast</a>
+            <span class="meta">Dwarkesh Patel</span>
+            <p>Long interviews where researchers think out loud; pairs well with the training and scaling weeks.</p>
+          </li>
+          <li>
+            <a href="https://www.youtube.com/@MachineLearningStreetTalk">Machine Learning Street Talk</a>
+            <span class="meta">Tim Scarfe</span>
+            <p>Deep technical conversations, often with the paper’s own authors.</p>
+          </li>
+          <li>
+            <a href="https://twimlai.com/">The TWIML AI Podcast</a>
+            <span class="meta">Sam Charrington</span>
+            <p>A long-running interview archive; search it by topic when a week sparks something.</p>
+          </li>
+          <li>
+            <a href="https://practicalai.show/">Practical AI</a>
+            <span class="meta">Daniel Whitenack, Chris Benson</span>
+            <p>The most approachable of the set; a good companion for Weeks 0 through 8.</p>
+          </li>
+          <li>
+            <a href="https://wandb.ai/site/resources/podcast/">Gradient Dissent</a>
+            <span class="meta">Lukas Biewald, Weights &amp; Biases</span>
+            <p>Practitioners on what shipped and what did not; the labs use the same experiment tooling.</p>
           </li>
         </ul>
       </section>
