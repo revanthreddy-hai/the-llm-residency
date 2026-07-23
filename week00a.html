@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Map of the Territory · The LLM Residency, Week 0</title>
-<meta name="description" content="An LLM is one pipeline: data, pretraining, post-training, evals, inference, operations. None of it is magic, and by the end of this program you will have built every stage yourself. Today you train your first one.">
+<meta name="description" content="A practical map of the LLM lifecycle, plus a character-level language model with held-out evaluation that runs on a laptop CPU.">
 <meta property="og:title" content="The Map of the Territory · The LLM Residency">
-<meta property="og:description" content="No magic anywhere in the pipeline: the six stages of a large language model, and a tiny one you train yourself in 30 minutes.">
+<meta property="og:description" content="The LLM lifecycle from data to operations, made concrete with a small model you can train and evaluate yourself.">
 <meta property="og:type" content="article">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
@@ -38,13 +38,13 @@
     <header class="article-header">
       <p class="kicker">Week 0 · Part A · The on-ramp</p>
       <h1>The Map of the Territory</h1>
-      <p class="dek">An LLM is one pipeline: data, pretraining, post-training, evals, inference, operations.
-      None of it is magic, and by the end of this program you will have built every stage yourself.
-      Today you train your first one.</p>
+      <p class="dek">This journal follows six connected parts of the LLM lifecycle: data, pretraining,
+      post-training, evaluation, inference, and operations. Today I start with the smallest working version
+      of the core generation loop.</p>
       <div class="article-meta">
         <span>≈ 9 min read</span>
-        <span>Last verified 2026-07-21</span>
-        <span>Textbook register</span>
+        <span>Last verified 2026-07-23</span>
+        <span>Working notes</span>
       </div>
     </header>
 
@@ -54,42 +54,34 @@
         <span class="callout-label">Skip test</span>
         <p>Answer these three and you can jump straight to <a href="#lab">the lab</a>:</p>
         <ol>
-          <li>What does a language model literally output at each step?</li>
-          <li>Name the two training phases between “pile of web text” and “helpful assistant.”</li>
-          <li>Why is generating token #500 usually <em>cheaper</em> to compute but <em>slower</em> to serve than token #1?</li>
+          <li>What does a GPT-style model produce before the decoder chooses the next token?</li>
+          <li>What are the two broad training phases between raw text and a useful assistant?</li>
+          <li>Why is prompt prefill usually more compute-intensive, while autoregressive decode is often
+          memory-bandwidth-bound even though it emits only one token per step?</li>
         </ol>
-        <p class="fine">If any of those made you squint, you’re in the right place. If #3 made you squint, good:
-        that one takes most working ML engineers a while, and it’s Week 13’s whole story.</p>
+        <p class="fine">If #3 made you pause, that is expected. It is the question I return to in Week 13.</p>
       </aside>
 
-      <p>You have used a large language model. You may have shipped features on top of one. And if you’re
-      honest, somewhere between “it autocompletes text” and “it wrote my SQL migration,” your mental model
-      has a gap labeled <em>???</em>, or worse, labeled <em>magic</em>.</p>
+      <p>I have used language models in production, but I want a more exact picture of what happens between
+      raw text and a served system. For the next six months I am building small, inspectable versions of each
+      part and publishing the code, measurements, failures, and corrections.</p>
 
-      <p>Here is the claim this entire program stands on: <strong>there is no magic anywhere in the
-      pipeline.</strong> A large language model is one system with six stages, each of which is ordinary
-      engineering: ambitious, sometimes expensive, occasionally maddening, but ordinary. Data goes in one
-      end. A running product comes out the other. Every stage can be built, measured, broken, and fixed by
-      a person like you.</p>
+      <p>This is the map I am starting with. I expect parts of it to change as I work through the residency.</p>
 
-      <p>Over the next six months you will build all six stages with your own hands: you’ll train a
-      transformer from scratch and keep the loss curves to prove it, fine-tune it into an assistant,
-      evaluate it without fooling yourself, compress it, serve it behind an API with a latency target, and
-      keep it alive under load. Roughly ten hours a week. No ML background assumed; if you can program,
-      the on-ramp covers the rest.</p>
+      <h2 id="one-sentence">The core generation loop</h2>
 
-      <p>This first post is the map. Everything after it is territory.</p>
+      <p>The GPT-style autoregressive models this journal focuses on take the tokens seen so far and produce
+      one score, or <em>logit</em>, for every token in their vocabulary. The decoding procedure turns those scores
+      into next-token probabilities, chooses a token, appends it, and repeats.</p>
 
-      <h2 id="one-sentence">The one-sentence version</h2>
-
-      <p>A language model is <strong>a function that takes a sequence of tokens and outputs a probability
-      for every possible next token.</strong></p>
+      <p>The toy model below skips the neural network and stores probabilities directly. That makes the loop
+      visible without pretending the model is a miniature ChatGPT.</p>
 
       <figure class="ntp" id="ntp">
         <figcaption class="ntp-head">
           <span class="callout-label">How the next token is chosen</span>
-          <span class="ntp-sub">The Week 0 model, live in your browser: real probabilities computed from the same
-          32,033 names as the lab.</span>
+          <span class="ntp-sub">Add-one-smoothed probabilities computed from the lab’s training split.
+          Bar heights show relative likelihood within the current row.</span>
         </figcaption>
         <div class="ntp-name"><span class="ntp-label">name so far</span><span id="ntp-out" aria-live="polite"></span></div>
         <div class="ntp-bars" id="ntp-bars" aria-hidden="true"></div>
@@ -98,125 +90,26 @@
           <button type="button" id="ntp-step">Next token</button>
           <button type="button" id="ntp-gen">Generate a name</button>
           <button type="button" id="ntp-reset">Reset</button>
-          <label class="ntp-mem"><input type="checkbox" id="ntp-mem"> show model memory</label>
+          <label class="ntp-mem"><input type="checkbox" id="ntp-mem"> highlight context the model can see</label>
         </div>
-        <p class="ntp-note">Same next-token objective as modern LLMs; not the same architecture or capabilities.
-        This model sees only one character back, which is why a single letter and a fourteen-letter ramble are
-        both possible names.</p>
+        <p class="ntp-note">This is the same basic choose–append–repeat pattern used to generate text with
+        GPT-style models, not the same architecture or capabilities. Because this model conditions only on the
+        previous character, every step can look locally plausible while the complete name drifts.</p>
       </figure>
 
-
-      <p>That’s the whole product. GPT-5, Claude, Llama, the medical voice agent that schedules your
-      colonoscopy prep call. At the core, each one answers exactly one question, over and over:
-      <em>given everything so far, how likely is each possible next piece?</em> Pick a token from that
-      distribution, append it, ask again. Every chatbot conversation you’ve ever had was generated one
-      probability distribution at a time.</p>
-
-      <p>Hold onto how underwhelming that sounds. The gap between that sentence and “it debugged my
-      Kubernetes manifest” is not magic; it’s six stages of engineering, and closing that gap is what the
-      next 26 weeks are for.</p>
-
-      <figure class="flowline" aria-label="The six-stage pipeline">
-        <span>Data</span><span class="arr" aria-hidden="true">→</span><span>Pretraining</span><span class="arr" aria-hidden="true">→</span><span>Post-training</span><span class="arr" aria-hidden="true">→</span><span>Evals</span><span class="arr" aria-hidden="true">→</span><span class="core">Inference</span><span class="arr" aria-hidden="true">→</span><span class="core">Operations</span>
-      </figure>
-
-      <h2 id="six-stages">The six stages</h2>
-
-      <h3><span class="stage-no">01</span>Data</h3>
-      <p>Someone has to decide what a model reads, and “the internet” is not an answer; it’s a problem
-      statement. Web crawls arrive as a swamp: boilerplate, duplicates, spam, gibberish, things you legally
-      and ethically must not train on. The real work is filtering, deduplicating, and <em>mixing</em>: how
-      much code, how much prose, how much of which languages. Data work is the least glamorous stage and
-      moves model quality more than almost anything downstream. In <span class="wkchip">Week 7</span> you’ll
-      run a small pipeline and measure exactly how much dirty data hurts.</p>
-
-      <h3><span class="stage-no">02</span>Pretraining</h3>
-      <p>The famous part. Take a transformer (a particular arrangement of matrix multiplications you’ll
-      assemble by hand in Weeks 4–5), show it trillions of tokens, and for each one ask it to predict the
-      next. Grade it, nudge millions of dials in the right direction, repeat until the swamp of text has
-      been compressed into something that completes sentences eerily well. It is also where the money
-      goes: frontier runs are hundred-million-dollar exercises in not wasting GPU time.
-      In <span class="wkchip">Weeks 1–8</span> you’ll do it at a scale that fits on one GPU, which is enough
-      to hit every real failure mode: loss spikes, learning-rate cliffs, the works.</p>
-
-      <h3><span class="stage-no">03</span>Post-training</h3>
-      <p>A pretrained model is a <em>completion engine</em>, not an assistant. Ask it “What’s the capital
-      of France?” and it may reply “What’s the capital of Germany? What’s the capital of Italy?”, because
-      quiz lists look like that on the internet. Post-training teaches it to be <em>useful</em>: supervised
-      fine-tuning on example conversations, then preference optimization so it favors answers humans
-      actually want. Same machinery as pretraining, radically less data, much more judgment.
-      In <span class="wkchip">Weeks 9–12</span> you’ll turn your own base model into something you can talk
-      to.</p>
-
-      <h3><span class="stage-no">04</span>Evals</h3>
-      <p>How do you know any of it worked? Benchmarks, and this deserves the emphasis: evals are the
-      easiest place in the whole pipeline to fool yourself. Test questions
-      leak into training data. Scores swing run to run. Models learn the <em>format</em> of a benchmark
-      instead of the skill. Serious teams treat evaluation as an engineering discipline In <span class="wkchip">Week 8</span>, then again in <span class="wkchip">Week 20</span>, you’ll build an eval
-      harness, run the same benchmark ten times, and look hard at the spread before you ever trust a single
-      number again.</p>
-
-      <h3><span class="stage-no">05</span>Inference</h3>
-      <p>I give inference six full weeks because it is the part I most want to understand deeply. Training
-      happens once; inference happens every time any user sends any message, forever. It has its own deep
-      engineering: why generating text is bottlenecked on <em>memory bandwidth</em> rather than raw
-      compute, the KV cache (the data structure behind most of an LLM API’s serving cost), batching strategies, quantization, speculative decoding, and what an H100 actually does for
-      its $30,000. <span class="wkchip">Weeks 13–17</span> cover all of it, and if you end up specializing where the
-      industry is currently most starved for engineers, it will probably be here.</p>
-
-      <h3><span class="stage-no">06</span>Operations</h3>
-      <p>Models are software in production: dashboards, latency targets, load spikes, incidents at 2 a.m.
-      A serving fleet can be <em>up</em> and still be <em>failing</em>: cache pressure quietly evicting
-      context, a quantized deployment silently 3% dumber than yesterday’s. Running models is a reliability
-      discipline, and these notes treat it as one.
-      From <span class="wkchip">Week 18</span> on, you’ll deliberately break your own serving stack and
-      drill the recovery.</p>
-
-      <h2 id="jobs">Where the jobs are (and where we go deepest)</h2>
-
-      <p>Roughly three roles live on this pipeline. <strong>Training engineers</strong> live in stages 1–3
-      (data, distributed training, post-training recipes). <strong>Inference engineers</strong> live in
-      5–6 (serving systems, GPU economics, latency). <strong>Applied LLM engineers</strong> build products
-      on top of everything (retrieval, agents, evals for their domain). Teams hire for all three;
-      the middle one is consistently the hardest to fill, because it needs systems engineering and ML
-      fluency in the same head.</p>
-
-      <p>This program covers the entire pipeline; you can’t reason about serving a model you don’t
-      understand, so the foundations (Weeks 1–8) come first. But it allocates its depth budget
-      deliberately: <strong>six of the twenty-six weeks (13 through 18) live entirely on inference and
-      operations</strong>, the slice other courses compress into a single lecture, with inference threads
-      running from Week 6 onward. By Week 16 you will have served your own fine-tuned model under a stated
-      latency target and produced a cost-per-million-tokens report a finance team could audit.</p>
-
-      <h2 id="route">The route</h2>
-
-      <table>
-        <thead>
-          <tr><th scope="col">Phase</th><th scope="col">Weeks</th><th scope="col">You will have…</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Foundations</td><td class="wkcol">1–8</td><td>trained a GPT from scratch + an audit-ready training report</td></tr>
-          <tr><td>Adaptation</td><td class="wkcol">9–12</td><td>turned it into an assistant (SFT, LoRA, preferences, distillation)</td></tr>
-          <tr><td>Inference core</td><td class="wkcol">13–18</td><td>served it under an SLO, with the cost math to prove it</td></tr>
-          <tr><td>Capstone</td><td class="wkcol">19–26</td><td>safety guardrails, a benchmark, and a capstone demo built in public</td></tr>
-        </tbody>
-      </table>
-
-      <p>Weekly rhythm, every week: one <strong>explainer</strong> like this one, one <strong>lab</strong>
-      with autograded tests (the grader tells you your attention head is wrong <em>before</em> you burn an
-      hour training it), one <strong>reference card</strong> you’ll bookmark, and a short
-      <strong>resident’s log</strong>. I’m going through a real six-month LLM residency as I write this,
-      and you get the failures too, not just the polished lessons.</p>
+      <p>That is the core generation loop, not the whole product. Tokenization, data, training, post-training,
+      evaluation, serving infrastructure, retrieval, tools, and product policy all shape what users experience.</p>
 
       <h2 id="lab">Build one right now</h2>
 
-      <p>Thirty minutes, laptop CPU, no GPU, no ML background. We’re training the smallest language model
-      that is honestly called one: it reads 32,033 human first names and learns which letter follows which.
-      Then it invents new names.</p>
+      <p>The source dataset contains 32,033 name records and 29,494 unique spellings. The lab deduplicates the
+      records, reserves validation and test data <em>before</em> fitting the model, and learns which character
+      tends to follow which. It runs on a laptop CPU.</p>
 
       <p class="lab-cta">
         <a class="btn btn-ghost" href="https://colab.research.google.com/github/revanthreddy-hai/the-llm-residency/blob/main/labs/week00_the_map.ipynb">Open the lab in Colab →</a>
-        <span class="note">Runs in your browser, nothing to install, or copy the code below.</span>
+        <span class="note">The notebook includes the held-out evaluation and self-checks. The compact version
+        below trains and samples the same model.</span>
       </p>
 
       <div class="codeblock">
@@ -224,77 +117,180 @@
           <span class="lang">Python</span>
           <button class="copy-btn" type="button" data-copy>Copy</button>
         </div>
-<pre><code>import torch
+<pre><code>from pathlib import Path
+import hashlib, random, urllib.request
+import torch
 
-<span class="c"># 32k names, one per line; dataset in the lab repo (or karpathy/makemore)</span>
-words = open(<span class="s">"names.txt"</span>).read().splitlines()
+<span class="c"># Pin the source so the data cannot change underneath this example.</span>
+url = (<span class="s">"https://raw.githubusercontent.com/karpathy/makemore/"</span>
+       <span class="s">"988aa59e4d8fefa526d06f3b453ad116258398d4/names.txt"</span>)
+path = Path(<span class="s">"names-988aa59.txt"</span>)
+if not path.exists():
+    urllib.request.urlretrieve(url, path)
 
-<span class="c"># our "tokenizer": one token per character, plus '.' to mark start/end</span>
-chars = sorted(set(<span class="s">""</span>.join(words)))          <span class="c"># 26 letters</span>
+data = path.read_bytes()
+expected = <span class="s">"0a30b5557f192f32ab962680889aac5f6fda0f4cecf40a6d0b5694f58ea8cc4d"</span>
+assert hashlib.sha256(data).hexdigest() == expected
+records = data.decode(<span class="s">"utf-8"</span>).splitlines() <span class="c"># 32,033 records</span>
+words = sorted(set(records))                  <span class="c"># 29,494 unique spellings</span>
+random.Random(42).shuffle(words)
+n_train = int(0.8 * len(words))
+n_val = int(0.9 * len(words))
+train_words = words[:n_train]                 <span class="c"># held-out splits stay untouched</span>
+val_words = words[n_train:n_val]
+test_words = words[n_val:]
+
+chars = sorted(set(<span class="s">""</span>.join(train_words)))
 stoi = {s: i + 1 for i, s in enumerate(chars)}
 stoi[<span class="s">"."</span>] = 0
 itos = {i: s for s, i in stoi.items()}
 
-<span class="c"># the entire model: a 27x27 table of next-character counts</span>
-N = torch.zeros((27, 27), dtype=torch.int32)          <span class="c"># [V, V] vocab x vocab</span>
-for w in words:
+<span class="c"># Fit P(next character | current character) on training names only.</span>
+N = torch.zeros((27, 27), dtype=torch.int32)
+for w in train_words:
     cs = [<span class="s">"."</span>] + list(w) + [<span class="s">"."</span>]
     for c1, c2 in zip(cs, cs[1:]):
         N[stoi[c1], stoi[c2]] += 1
 
-<span class="c"># counts -&gt; probabilities: P[i] answers "given character i, what comes next?"</span>
-P = (N + 1).float()                                    <span class="c"># +1: never say "impossible"</span>
-P /= P.sum(1, keepdim=True)                            <span class="c"># rows sum to 1.0</span>
+P = (N + 1).float()                          <span class="c"># add-one smoothing</span>
+P /= P.sum(1, keepdim=True)
 
-<span class="c"># generation: the same sampling loop every LLM uses, behind a much weaker model</span>
 g = torch.Generator().manual_seed(42)
 for _ in range(5):
     out, ix = [], 0
     while True:
-        ix = torch.multinomial(P[ix], num_samples=1, generator=g).item()
+        ix = torch.multinomial(P[ix], 1, generator=g).item()
         if ix == 0:
             break
         out.append(itos[ix])
     print(<span class="s">""</span>.join(out))</code></pre>
       </div>
 
-      <p>Run it (guided version with tests: <code>lab repo → week00/</code>). On my Mac the whole thing,
-      counting through evaluation, takes about a second. With seed 42 the first names out are
-      <code>anugeenvi</code>, <code>s</code>, <code>mabidushan</code>, <code>stan</code>,
-      <code>silaylelaremah</code>: one plausible name, a fourteen-letter ramble, and a name that is just
-      the letter s. All of these outcomes matter:</p>
+      <p>With PyTorch 2.13 on CPU, seed 42 begins with <code>a</code>, <code>feeenvi</code>, <code>s</code>,
+      <code>mabian</code>, and <code>dan</code>. The exact samples are recorded with the environment because
+      PyTorch does not guarantee identical seeded results across every release and platform.</p>
 
       <ul>
-        <li><strong>It works.</strong> The table looked at real names and now produces name-<em>shaped</em>
-        strings it has never seen. It learned the statistics of a tiny universe. And the sampling loop is the
-        same one every LLM runs: model the probability of what comes next, then sample from it. What
-        differs is the model behind the distribution: a 27-by-27 table here, a transformer with billions
-        of parameters in ChatGPT. You have now trained and sampled from a language model. The
-        sentence at the top of this post should feel less abstract already.</li>
-        <li><strong>It’s terrible.</strong> It only remembers one character of context, so a “name” can be
-        a single letter or a fourteen-letter ramble: each step looked locally plausible and the whole is
-        garbage.
-        Fixing <em>that</em> (looking further back, and learning which parts of the past matter) is, in a
-        very real sense, the entire rest of this course. Next week we give it a brain instead of a lookup
-        table. In Week 4 we meet attention, the idea modern LLMs are built on.</li>
+        <li><strong>It learned signal.</strong> Uniform guessing scores 3.2958 nats per transition. This model
+        scores 2.4537 on training data, 2.4567 on validation data, and 2.4606 on test data. The small gap
+        suggests its one-character transition statistics transfer similarly to held-out spellings; it does not,
+        by itself, rule out memorization.</li>
+        <li><strong>Its representation is weak.</strong> One character of context is too little, so every
+        transition can be locally likely while the complete name is implausible. The model can generate novel
+        strings, but it can also reproduce training names—<code>dan</code> is one example here. Sampling is not
+        a novelty guarantee.</li>
       </ul>
+
+      <p>This toy exercise touches data preparation, model fitting, held-out evaluation, and inference. It omits
+      post-training and operations, and reduces the model itself to a table. Those omissions are the rest of the
+      route.</p>
+
+      <figure class="flowline" aria-label="Six parts of the residency in curriculum order">
+        <span>Data</span><span class="arr" aria-hidden="true">→</span><span>Pretraining</span><span class="arr" aria-hidden="true">→</span><span>Post-training</span><span class="arr" aria-hidden="true">→</span><span>Evals</span><span class="arr" aria-hidden="true">→</span><span class="core">Inference</span><span class="arr" aria-hidden="true">→</span><span class="core">Operations</span>
+      </figure>
+
+      <h2 id="six-stages">The six parts of the lifecycle</h2>
+
+      <p>This is the order I use to organize the journal, not a one-way production pipeline. Evaluation runs
+      throughout, and problems found in operations feed back into data, training, and deployment.</p>
+
+      <h3><span class="stage-no">01</span>Data</h3>
+      <p>“The internet” is not a dataset. Web crawls contain boilerplate, duplicates, spam, low-quality text,
+      and material that may need exclusion for privacy, licensing, safety, or policy reasons. Filtering,
+      deduplication, and dataset mixture can materially change quality and memorization. In
+      <span class="wkchip">Week 7</span> I will run a small pipeline and measure those effects instead of
+      treating “more data” as the answer.</p>
+
+      <h3><span class="stage-no">02</span>Pretraining</h3>
+      <p>For a GPT-style model, pretraining repeatedly asks a transformer to predict the next token and
+      adjusts its parameters when it is wrong. Large runs can involve trillions of tokens and billions of
+      parameters; some frontier runs are estimated to cost tens to hundreds of millions of dollars. In
+      <span class="wkchip">Weeks 1–8</span> I will do this on one GPU—enough to encounter core optimization
+      failures such as unstable loss and bad learning-rate schedules, but not distributed-training failures.</p>
+
+      <h3><span class="stage-no">03</span>Post-training</h3>
+      <p>A pretrained model is a <em>completion engine</em>, not an assistant. Ask it “What’s the capital
+      of France?” and it may reply “What’s the capital of Germany? What’s the capital of Italy?”, because
+      quiz lists look like that on the internet. One common post-training route uses supervised fine-tuning
+      on demonstrations, followed by preference optimization. In <span class="wkchip">Weeks 9–12</span> I
+      will use those methods to turn the base model into something conversational and measure what regresses.</p>
+
+      <h3><span class="stage-no">04</span>Evals</h3>
+      <p>How do I know any of it worked? Benchmark items can appear in training data, scores can depend on
+      prompt format, and stochastic generation or model-based judges introduce variance. A score without its
+      dataset, protocol, and uncertainty can be misleading. In <span class="wkchip">Week 8</span>, then
+      again in <span class="wkchip">Week 20</span>, I will build an evaluation harness with held-out data,
+      repeat stochastic measurements, and report uncertainty rather than trusting one number.</p>
+
+      <h3><span class="stage-no">05</span>Inference</h3>
+      <p>Training is episodic; inference runs on every request. Prompt prefill is usually more
+      compute-intensive, while autoregressive decode at low or moderate batch sizes is often constrained by
+      memory bandwidth. The KV cache is a major consumer of serving memory and a central scheduling
+      constraint. <span class="wkchip">Weeks 13–17</span> cover prefill, decode, KV-cache sizing, batching,
+      quantization, speculative decoding, and GPU cost accounting.</p>
+
+      <h3><span class="stage-no">06</span>Operations</h3>
+      <p>Models are software in production: dashboards, latency targets, load spikes, incidents at 2 a.m.
+      A serving fleet can be <em>up</em> and still be <em>failing</em>: KV-cache pressure can trigger
+      preemption, recomputation, and latency spikes; quantization can regress the task-specific evaluation
+      that matters. Running models is a reliability discipline. In <span class="wkchip">Week 18</span> I
+      will deliberately break the serving stack and drill the recovery.</p>
+
+      <h2 id="jobs">Why I spend six weeks on serving</h2>
+
+      <p>My background is systems and reliability, and inference is the part I most want to understand
+      deeply. Weeks 13–18 therefore form a six-week inference-and-operations block: decoding, KV-cache
+      pressure, batching, quantization, latency, cost, and operating the resulting service. The earlier
+      foundations stay necessary because serving behavior only makes sense when I understand the model being
+      served.</p>
+
+      <h2 id="route">The route</h2>
+
+      <table>
+        <thead>
+          <tr><th scope="col">Phase</th><th scope="col">Weeks</th><th scope="col">What I plan to build</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Foundations</td><td class="wkcol">1–8</td><td>a small GPT-style model and a measured training report</td></tr>
+          <tr><td>Adaptation</td><td class="wkcol">9–12</td><td>an assistant adapted with SFT, LoRA, preferences, and distillation</td></tr>
+          <tr><td>Inference core</td><td class="wkcol">13–18</td><td>a serving stack measured against a stated SLO and cost model</td></tr>
+          <tr><td>Capstone</td><td class="wkcol">19–26</td><td>guardrails, a benchmark, and a scoped public demo</td></tr>
+        </tbody>
+      </table>
+
+      <p>Each week I plan to publish one explainer, one runnable lab with self-checks, one reference card,
+      and a short resident’s log. The point is to preserve the measurements and failures, not only the
+      polished lesson.</p>
 
       <h2 id="sources">Sources &amp; further reading</h2>
 
       <ul class="sources">
-        <li>Bengio et&nbsp;al., <em>A Neural Probabilistic Language Model</em> (2003): the paper Week 1
-        quietly reenacts.</li>
-        <li>Karpathy, <em>makemore</em> (GitHub): the spiritual ancestor of today’s lab; his video series
-        pairs well with Weeks 1 through 5.</li>
-        <li>Shannon, <em>Prediction and Entropy of Printed English</em> (1951): people were doing today’s
-        lab by hand, on paper, in 1951. It’s a delightful read.</li>
+        <li><a href="https://www.jmlr.org/papers/v3/bengio03a.html">Bengio et&nbsp;al.,
+        <em>A Neural Probabilistic Language Model</em></a> (2003): neural next-token modeling and longer
+        context.</li>
+        <li><a href="https://github.com/karpathy/makemore/tree/988aa59e4d8fefa526d06f3b453ad116258398d4">Karpathy,
+        <em>makemore</em></a>: the code and pinned dataset behind the Week 0 lab.</li>
+        <li><a href="https://www.nokia.com/bell-labs/publications-and-media/publications/prediction-and-entropy-of-printed-english/">Shannon,
+        <em>Prediction and Entropy of Printed English</em></a> (1951): human next-letter prediction as a
+        way to estimate the entropy of English.</li>
+        <li><a href="https://arxiv.org/abs/2107.06499">Lee et&nbsp;al., <em>Deduplicating Training Data
+        Makes Language Models Better</em></a> (2021): data duplication, memorization, and evaluation overlap.</li>
+        <li><a href="https://arxiv.org/abs/2203.02155">Ouyang et&nbsp;al., <em>Training language models to
+        follow instructions with human feedback</em></a> (2022): supervised fine-tuning followed by
+        preference-based post-training.</li>
+        <li><a href="https://www.usenix.org/conference/osdi24/presentation/zhong-yinmin">Zhong et&nbsp;al.,
+        <em>DistServe</em></a> (OSDI 2024): the different latency and resource behavior of prefill and decode.</li>
+        <li><a href="https://arxiv.org/abs/2309.06180">Kwon et&nbsp;al., <em>Efficient Memory Management for
+        Large Language Model Serving with PagedAttention</em></a> (2023): KV-cache memory and serving throughput.</li>
+        <li><a href="https://arxiv.org/abs/2405.21015">Cottier et&nbsp;al., <em>The rising costs of training
+        frontier AI models</em></a> (2024): estimated training and development costs.</li>
       </ul>
 
     </article>
 
     <div class="article-next">
       <span class="k">Next on the on-ramp</span>
-      <p class="nt">W0 · Part B: Tensors, Gradients, and Your Toolchain<span class="soon">in production</span></p>
+      <p class="nt">W0 · Part B: Tensors, Gradients, and Your Toolchain <span class="soon">in progress</span></p>
       <p style="font-size:0.92rem; color: var(--ink-2); max-width: 40rem;">
         The only other post before Week 1: shapes as a learnable discipline, gradients without calculus
         trauma, and a working toolchain. <a href="index.html#subscribe">Subscribe</a> and it lands in your
@@ -343,7 +339,7 @@ for _ in range(5):
 <script>
   (function () {
     var A = ".abcdefghijklmnopqrstuvwxyz".split("");
-    var C = [0,4410,1306,1542,1690,1531,417,669,874,591,2422,2963,1572,2538,1146,394,515,92,1639,2055,1308,78,376,307,134,535,929,6640,556,541,470,1042,692,134,168,2332,1650,175,568,2528,1634,5438,63,82,60,3264,1118,687,381,834,161,182,2050,435,114,321,38,1,65,655,0,0,41,217,1,0,103,0,4,105,0,0,842,8,2,45,0,0,0,83,0,97,815,0,42,1,551,0,2,664,271,3,316,116,0,0,380,1,11,76,5,35,35,0,0,3,104,4,516,1303,1,3,149,1283,5,25,118,674,9,3,60,30,31,378,0,1,424,29,4,92,17,23,0,317,1,3983,679,121,153,384,1271,82,125,152,818,55,178,3248,769,2675,269,83,14,1958,861,580,69,463,50,132,1070,181,80,242,0,0,0,123,44,1,1,160,0,2,20,0,4,60,0,0,114,6,18,10,0,4,0,14,2,108,330,3,0,19,334,1,25,360,190,3,0,32,6,27,83,0,0,201,30,31,85,1,26,0,31,1,2409,2244,8,2,24,674,2,2,1,729,9,29,185,117,138,287,1,1,204,31,71,166,39,10,0,213,20,2489,2445,110,509,440,1653,101,428,95,82,76,445,1345,427,2126,588,53,52,849,1316,541,109,269,8,89,779,277,71,1473,1,4,4,440,0,0,45,119,2,2,9,5,2,479,1,0,11,7,2,202,5,6,0,10,0,363,1731,2,2,2,895,1,0,307,509,2,20,139,9,26,344,0,0,109,95,17,50,2,34,0,379,2,1314,2623,52,25,138,2921,22,6,19,2480,6,24,1345,60,14,692,15,3,18,94,77,324,72,16,0,1588,10,516,2590,112,51,24,818,1,0,5,1256,7,1,5,168,20,452,38,0,97,35,4,139,3,2,0,287,11,6763,2977,8,213,704,1359,11,273,26,1725,44,58,195,19,1906,496,5,2,44,278,443,96,55,11,6,465,145,855,149,140,114,190,132,34,44,171,69,16,68,619,261,2411,115,95,3,1059,504,118,275,176,114,45,103,54,33,209,2,1,0,197,1,0,204,61,1,1,16,1,1,59,39,0,151,16,17,4,0,0,0,12,0,28,13,0,0,0,1,0,0,0,13,0,0,1,2,0,2,0,0,1,2,0,206,0,3,0,0,0,1377,2356,41,99,187,1697,9,76,121,3033,25,90,413,162,140,869,14,16,425,190,208,252,80,21,3,773,23,1169,1201,21,60,9,884,2,2,1285,684,2,82,279,90,24,531,51,1,55,461,765,185,14,24,0,215,10,483,1027,1,17,0,716,2,2,647,532,3,0,134,4,22,667,0,0,352,35,374,78,15,11,2,341,105,155,163,103,103,136,169,19,47,58,121,14,93,301,154,275,10,16,10,414,474,82,3,37,86,34,13,45,88,642,1,0,1,568,0,0,1,911,0,3,14,0,8,153,0,0,48,0,0,7,7,0,0,121,0,51,280,1,0,8,149,2,1,23,148,0,6,13,2,58,36,0,0,22,20,8,25,0,2,0,73,1,164,103,1,4,5,36,3,0,1,102,0,0,39,1,1,41,0,0,0,31,70,5,0,3,38,30,19,2007,2143,27,115,272,301,12,30,22,192,23,86,1104,148,1826,271,15,6,291,401,104,141,106,4,28,23,78,160,860,4,2,2,373,0,1,43,364,2,2,123,35,4,110,2,0,32,4,4,73,2,3,1,147,45];
+    var C = [0,3328,905,1136,1262,1150,298,490,639,448,1776,2160,1161,1914,837,277,354,67,1162,1496,971,51,299,196,99,414,705,5215,436,432,323,792,518,105,125,1775,1239,127,435,1925,1187,4080,55,59,46,2394,832,521,276,642,118,134,1542,330,91,249,27,0,54,497,0,0,31,157,1,0,65,0,2,70,0,0,601,6,2,36,0,0,0,52,0,69,583,0,25,0,392,0,1,496,201,2,239,86,0,0,276,1,9,55,2,25,26,0,0,2,70,4,372,998,1,2,105,927,5,18,96,486,7,1,39,26,25,291,0,1,317,21,4,72,14,19,0,207,1,2906,530,90,106,296,962,59,85,110,635,45,136,2442,571,1939,193,62,9,1394,627,452,55,332,29,86,759,131,67,182,0,0,0,85,33,1,1,111,0,2,16,0,1,43,0,0,91,4,13,9,0,2,0,11,2,82,238,1,0,12,234,1,14,272,142,2,0,23,5,20,59,0,0,145,19,19,62,0,21,0,21,1,1835,1680,5,1,18,518,2,2,1,549,6,24,132,90,99,210,1,1,168,21,51,128,29,9,0,152,17,1773,1847,93,389,317,1210,77,319,72,62,62,339,1019,314,1572,438,37,36,661,981,402,93,201,7,56,609,216,52,1092,1,4,3,325,0,0,36,82,2,2,7,5,1,359,0,0,8,4,2,136,4,5,0,9,0,282,1289,2,1,1,652,1,0,225,372,1,13,100,8,19,242,0,0,78,79,12,41,2,29,0,276,2,966,1993,38,21,100,2161,16,5,12,1871,6,15,1001,47,11,490,12,3,14,68,59,229,54,12,0,1176,6,391,1943,85,34,18,601,1,0,4,940,4,0,3,121,13,325,27,0,69,24,3,112,2,1,0,213,11,4798,2297,6,153,507,1009,11,194,20,1294,34,44,137,13,1425,365,2,2,37,220,336,79,41,9,4,355,117,636,108,101,83,129,82,25,31,132,56,8,49,457,191,1756,82,75,2,752,394,84,197,129,73,24,79,38,27,143,0,1,0,139,1,0,155,40,1,1,11,1,1,42,29,0,105,10,10,3,0,0,0,8,0,21,11,0,0,0,1,0,0,0,11,0,0,1,2,0,0,0,0,1,2,0,156,0,0,0,0,0,974,1805,30,72,136,1217,9,52,89,2202,22,64,290,116,109,634,11,14,325,123,155,186,50,17,1,552,19,865,912,15,43,6,668,1,2,966,512,2,61,211,69,19,377,36,1,45,341,541,133,14,15,0,157,7,358,791,1,14,0,519,1,1,500,388,2,0,92,3,11,477,0,0,272,28,266,53,8,6,1,247,81,116,124,81,68,97,130,17,33,48,94,12,71,225,118,204,5,8,10,293,369,59,2,29,53,22,11,34,65,490,1,0,1,404,0,0,1,709,0,2,9,0,6,119,0,0,32,0,0,7,5,0,0,91,0,29,189,1,0,7,100,1,1,16,100,0,5,10,1,42,26,0,0,13,12,7,21,0,2,0,47,1,91,75,1,3,4,27,2,0,1,78,0,0,18,1,1,27,0,0,0,23,46,5,0,2,28,21,18,1389,1659,23,84,188,231,8,19,19,150,17,62,808,114,1312,211,12,5,220,309,78,106,86,4,14,18,65,125,671,1,1,2,282,0,0,32,273,0,2,98,28,4,80,2,0,22,4,2,59,1,2,1,114,36];
     var P = [];
     for (var i = 0; i < 27; i++) {
       var row = [], sum = 0;
@@ -356,7 +352,7 @@ for _ in range(5):
         genBtn = document.getElementById("ntp-gen"), resetBtn = document.getElementById("ntp-reset"),
         memChk = document.getElementById("ntp-mem");
     if (!out) return;
-    var seq = [], ctx = 0, done = false, timer = null;
+    var seq = [], ctx = 0, done = false, stopReason = null, timer = null;
 
     var bars = [];
     for (var b = 0; b < 27; b++) {
@@ -370,8 +366,11 @@ for _ in range(5):
 
     function label(i) { return i === 0 ? "end" : A[i]; }
 
-    function render(hit) {
-      var row = P[ctx], max = Math.max.apply(null, row);
+    function contextLabel(i) { return i === 0 ? "start" : A[i]; }
+
+    function render(hit, rowIndex) {
+      var shownCtx = typeof rowIndex === "number" ? rowIndex : ctx;
+      var row = P[shownCtx], max = Math.max.apply(null, row);
       for (var j = 0; j < 27; j++) {
         bars[j].style.height = (row[j] / max * 100) + "%";
         bars[j].parentNode.className = "bar" + (hit === j ? " hit" : "");
@@ -384,30 +383,40 @@ for _ in range(5):
       }
       if (seq.length === 0 && !done) h = "<em class=\"cur\">\u00b7</em>";
       out.innerHTML = h;
-      if (done) {
-        read.textContent = "sampled \u201cend\u201d \u00b7 name complete: " + seq.join("");
+      if (done && stopReason === "end") {
+        read.textContent = "context \u201c" + contextLabel(shownCtx) + "\u201d \u2192 sampled \u201cend\u201d \u00b7 name complete: " +
+          (seq.length ? seq.join("") : "(empty sample)");
+      } else if (done && stopReason === "limit") {
+        read.textContent = "stopped at 25 characters for display \u00b7 the model did not sample \u201cend\u201d";
+      } else if (hit >= 0) {
+        read.textContent = "context \u201c" + contextLabel(shownCtx) + "\u201d \u2192 sampled \u201c" + label(hit) +
+          "\u201d \u00b7 next context \u201c" + contextLabel(ctx) + "\u201d";
       } else {
-        var top = [0,1,2].map(function(){return 0;});
         var idx = row.map(function(p, i){ return [p, i]; }).sort(function(a,b){ return b[0]-a[0]; }).slice(0,3);
-        read.textContent = "context \u201c" + (seq.length ? seq[seq.length-1] : "start") + "\u201d \u2192 top: " +
+        read.textContent = "context \u201c" + contextLabel(shownCtx) + "\u201d \u2192 top: " +
           idx.map(function(t){ return label(t[1]) + " " + (t[0]*100).toFixed(0) + "%"; }).join(" \u00b7 ") +
           " \u00b7 click Next token to sample";
       }
-      stepBtn.disabled = done; genBtn.disabled = done && false;
+      stepBtn.disabled = done;
     }
 
     function step() {
       if (done) return;
-      var row = P[ctx], r = Math.random(), acc = 0, pick = 26;
+      var from = ctx, row = P[from], r = Math.random(), acc = 0, pick = 26;
       for (var j = 0; j < 27; j++) { acc += row[j]; if (r < acc) { pick = j; break; } }
-      if (pick === 0 && seq.length === 0) pick = 1 + Math.floor(Math.random() * 26);
-      if (pick === 0 || seq.length > 24) { done = true; render(0); return; }
-      seq.push(A[pick]); ctx = pick; render(pick);
+      if (pick === 0) {
+        done = true; stopReason = "end"; render(0, from); return;
+      }
+      seq.push(A[pick]); ctx = pick;
+      if (seq.length >= 25) {
+        done = true; stopReason = "limit"; render(pick, from); return;
+      }
+      render(pick, from);
     }
 
     function reset() {
       if (timer) { clearInterval(timer); timer = null; }
-      seq = []; ctx = 0; done = false; render(-1);
+      seq = []; ctx = 0; done = false; stopReason = null; render(-1, ctx);
     }
 
     stepBtn.addEventListener("click", step);
@@ -417,9 +426,9 @@ for _ in range(5):
       timer = setInterval(function () {
         step();
         if (done) { clearInterval(timer); timer = null; }
-      }, 160);
+      }, 260);
     });
-    memChk.addEventListener("change", function () { render(-1); });
+    memChk.addEventListener("change", function () { render(-1, ctx); });
     reset();
   })();
 </script>
