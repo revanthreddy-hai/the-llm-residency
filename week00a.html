@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -45,6 +45,7 @@
         <span>≈ 9 min read</span>
         <span>Last verified 2026-07-23</span>
         <span>Working notes</span>
+        <span id="ppq-meta" hidden></span>
       </div>
     </header>
 
@@ -76,6 +77,25 @@
 
       <p>The toy model below skips the neural network and stores probabilities directly. That makes the loop
       visible without pretending the model is a miniature ChatGPT.</p>
+
+      <section class="ppq" data-q="1" data-answer="a">
+        <p class="ppq-kicker">Pause and predict · 1 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Before you sample: which letter most often starts a training name?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="e"><span>e, the most common letter in English</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="a"><span>a</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="j"><span>j, it feels common in names</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>The widget's opening state answers this: from the start token, the model's probabilities are the
+          add-one-smoothed, normalized counts of first letters in the training names. a leads with 3,328 starts, then
+          k (2,160), m (1,914), j (1,776). The first tall bar you see below is that fact.</p>
+        </details>
+      </section>
 
       <figure class="ntp" id="ntp">
         <figcaption class="ntp-head">
@@ -180,6 +200,27 @@ for _ in range(5):
         strings, but it can also reproduce training names; <code>dan</code> is one example here. Sampling is not
         a novelty guarantee.</li>
       </ul>
+
+      <section class="ppq" data-q="2" data-answer="mem">
+        <p class="ppq-kicker">Pause and predict · 2 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Training NLL is 2.4537; test is 2.4606. If instead the test number had come out far higher
+          than training, what would that most likely mean?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="mem"><span>The model memorized training-specific patterns that do not transfer</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="easy"><span>The test split happened to be easier</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="smooth"><span>Add-one smoothing stopped working</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>Training NLL measures fit to data the model counted; test NLL measures transfer to spellings it
+          never saw. Close scores mean what was learned generalizes. Diverging scores, with training much
+          lower, mean the model latched onto training-specific patterns. Week 1 uses exactly this comparison
+          to justify model choices.</p>
+        </details>
+      </section>
 
       <p>This toy exercise touches data preparation, model fitting, held-out evaluation, and inference. It omits
       post-training and operations, and reduces the model itself to a table. Those omissions are the rest of the
@@ -432,6 +473,104 @@ for _ in range(5):
     });
     memChk.addEventListener("change", function () { render(-1, ctx); });
     reset();
+  })();
+</script>
+<script>
+  (function () {
+    var FB = {
+      "1": {
+        "a": "Yes. In the training names, a starts 3,328 of 23,595, more than any other letter. The tall second bar in the chart below is exactly this fact.",
+        "e": "e is the most common letter in English text overall, but name starts have their own distribution: e starts 1,150 training names, while a starts 3,328. Reset the widget below and compare the a and e bars in the opening row.",
+        "j": "Reasonable guess: j is genuinely popular (1,776 starts, fourth place). But a leads with 3,328. Reset the widget below and compare the a and j bars in the opening row."
+      },
+      "2": {
+        "mem": "Right. A large gap, with training much lower, means the model fits its training data far better than unseen data: overfitting, or a mismatch between the splits. This table has only 729 numbers, so it has little room to overfit, which is why the gap stays small.",
+        "easy": "Other direction. If the test split were unusually easy, its NLL would come out low, shrinking the gap or flipping it. A large gap with training lower means test data surprised the model more, not less.",
+        "smooth": "Smoothing is not the suspect: add-one smoothing applies identically wherever the model is evaluated, and its job is to keep unseen transitions from having zero probability, which would make the NLL infinite. A train-test gap is about what was counted, not how unseen pairs are handled."
+      }
+    };
+    var KEY = "llmres-ppq-w0a@2026-07-23";
+    var state = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      state = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch (e) { state = {}; }
+
+    var sections = Array.prototype.slice.call(document.querySelectorAll(".ppq"));
+    var meta = document.getElementById("ppq-meta");
+    if (!sections.length) return;
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function reviewedCount() {
+      var n = 0;
+      sections.forEach(function (sec) { if (state[sec.getAttribute("data-q")]) n++; });
+      return n;
+    }
+
+    function renderMeta() {
+      var n = reviewedCount();
+      if (!meta) return;
+      if (n === 0) { meta.hidden = true; return; }
+      meta.hidden = false;
+      meta.textContent = n + " of " + sections.length + " reviewed";
+    }
+
+    function tagAnswer(sec) {
+      var ans = sec.getAttribute("data-answer");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        var input = row.querySelector("input"), text = row.querySelector("span");
+        if (input.value === ans && text && !text.querySelector(".ppq-ans-tag")) {
+          var t = document.createElement("span");
+          t.className = "ppq-ans-tag";
+          t.textContent = " · answer";
+          text.appendChild(t);
+        }
+      });
+    }
+
+    function apply(sec, value, announce) {
+      var q = sec.getAttribute("data-q");
+      var fb = sec.querySelector(".ppq-fb");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        row.classList.toggle("is-picked", row.querySelector("input").value === value);
+      });
+      sec.classList.add("is-done");
+      tagAnswer(sec);
+      if (value && value !== "reveal") {
+        if (announce) fb.setAttribute("role", "status");
+        var word = value === sec.getAttribute("data-answer") ? "" : "Not this one. ";
+        fb.textContent = word + FB[q][value];
+        var input = sec.querySelector("input[value=\"" + value + "\"]");
+        if (input) input.checked = true;
+      }
+    }
+
+    sections.forEach(function (sec) {
+      var q = sec.getAttribute("data-q");
+      sec.addEventListener("change", function (e) {
+        if (e.target && e.target.type === "radio") {
+          state[q] = e.target.value;
+          apply(sec, e.target.value, true);
+          save(); renderMeta();
+        }
+      });
+      var reason = sec.querySelector(".ppq-reason");
+      reason.addEventListener("toggle", function () {
+        if (reason.open && !state[q]) {
+          state[q] = "reveal";
+          sec.classList.add("is-done");
+          tagAnswer(sec);
+          save(); renderMeta();
+        }
+      });
+      var v = state[q];
+      if (v === "reveal" || (v && FB[q] && FB[q][v])) { apply(sec, v, false); }
+      else if (v) { delete state[q]; }
+    });
+    renderMeta();
   })();
 </script>
 </body>
