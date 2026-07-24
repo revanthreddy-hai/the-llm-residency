@@ -39,8 +39,7 @@
       <body>
         <div class="wrap">
           <h1><xsl:value-of select="atom:feed/atom:title"/></h1>
-          <p class="note">This is the web feed for The LLM Residency. Copy this address into any RSS
-          reader (NetNewsWire, Feedly, Reeder) and new posts arrive as they ship:</p>
+          <p class="note">Paste this address into any RSS reader to get new posts:</p>
           <div class="box"><xsl:value-of select="atom:feed/atom:link[@rel='self']/@href"/></div>
           <xsl:for-each select="atom:feed/atom:entry">
             <div class="entry">
