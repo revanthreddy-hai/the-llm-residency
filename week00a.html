@@ -60,7 +60,7 @@
           <li>A GPU can process a 1,000-token prompt in a single pass. Why is emitting the next 50 tokens,
           one at a time, often the slower part?</li>
         </ol>
-        <p class="fine">If #3 made you pause, that is expected. It is the question I return to in Week 13.</p>
+        <p class="fine">If #3 made you pause, that is expected. It is the question I return to in Week 17.</p>
       </aside>
 
       <p>We all use large language models now. I want to write down a more exact picture of what happens
@@ -239,47 +239,46 @@ for _ in range(5):
       <p>“The internet” is not a dataset. Web crawls contain boilerplate, duplicates, spam, low-quality text,
       and material that may need exclusion for privacy, licensing, safety, or policy reasons. Filtering,
       deduplication, and dataset mixture can materially change quality and memorization. In
-      <span class="wkchip">Week 7</span> I will run a small pipeline and measure those effects instead of
+      <span class="wkchip">Week 14</span> I will run a small pipeline and measure those effects instead of
       treating “more data” as the answer.</p>
 
       <h3><span class="stage-no">02</span>Pretraining</h3>
       <p>For a GPT-style model, pretraining repeatedly asks a transformer to predict the next token and
       adjusts its parameters when it is wrong. Large runs can involve trillions of tokens and billions of
       parameters; some frontier runs are estimated to cost tens to hundreds of millions of dollars. In
-      <span class="wkchip">Weeks 1–8</span> I will do this on one GPU: enough to encounter core optimization
+      <span class="wkchip">Weeks 9–16</span> I will do this on one GPU: enough to encounter core optimization
       failures such as unstable loss and bad learning-rate schedules, but not distributed-training failures.</p>
 
       <h3><span class="stage-no">03</span>Post-training</h3>
       <p>A pretrained model is a <em>completion engine</em>, not an assistant. Ask it “What’s the capital
       of France?” and it may reply “What’s the capital of Germany? What’s the capital of Italy?”, because
       quiz lists look like that on the internet. One common post-training route uses supervised fine-tuning
-      on demonstrations, followed by preference optimization. In <span class="wkchip">Weeks 9–12</span> I
+      on demonstrations, followed by preference optimization. In <span class="wkchip">Weeks 6–7</span> I
       will use those methods to turn the base model into something conversational and measure what regresses.</p>
 
       <h3><span class="stage-no">04</span>Evals</h3>
       <p>How do I know any of it worked? Benchmark items can appear in training data, scores can depend on
       prompt format, and stochastic generation or model-based judges introduce variance. A score without its
-      dataset, protocol, and uncertainty can be misleading. In <span class="wkchip">Week 8</span>, then
-      again in <span class="wkchip">Week 20</span>, I will build an evaluation harness with held-out data,
+      dataset, protocol, and uncertainty can be misleading. In <span class="wkchip">Week 15</span> I will build an evaluation harness with held-out data,
       repeat stochastic measurements, and report uncertainty rather than trusting one number.</p>
 
       <h3><span class="stage-no">05</span>Inference</h3>
       <p>Training is episodic; inference runs on every request. Prompt prefill is usually more
       compute-intensive, while autoregressive decode at low or moderate batch sizes is often constrained by
       memory bandwidth. The KV cache is a major consumer of serving memory and a central scheduling
-      constraint. <span class="wkchip">Weeks 13–17</span> cover prefill, decode, KV-cache sizing, batching,
+      constraint. <span class="wkchip">Weeks 17–20</span> cover prefill, decode, KV-cache sizing, batching,
       quantization, speculative decoding, and GPU cost accounting.</p>
 
       <h3><span class="stage-no">06</span>Operations</h3>
       <p>Models are software in production: dashboards, latency targets, load spikes, incidents at 2 a.m.
       A serving fleet can be <em>up</em> and still be <em>failing</em>: KV-cache pressure can trigger
       preemption, recomputation, and latency spikes; quantization can regress the task-specific evaluation
-      that matters. Running models is a reliability discipline. In <span class="wkchip">Week 18</span> I
+      that matters. Running models is a reliability discipline. In <span class="wkchip">Week 22</span> I
       will deliberately break the serving stack and drill the recovery.</p>
 
       <h2 id="jobs">Why I spend six weeks on serving</h2>
 
-      <p>Inference is the part of the lifecycle I most want to understand deeply. Weeks 13–18 therefore form a six-week inference-and-operations block: decoding, KV-cache
+      <p>Inference is the part of the lifecycle I most want to understand deeply. Weeks 17–22 therefore form a six-week inference-and-operations block: decoding, KV-cache
       pressure, batching, quantization, latency, cost, and operating the resulting service. The earlier
       foundations stay necessary because serving behavior only makes sense when I understand the model being
       served.</p>
@@ -291,10 +290,10 @@ for _ in range(5):
           <tr><th scope="col">Phase</th><th scope="col">Weeks</th><th scope="col">What I plan to build</th></tr>
         </thead>
         <tbody>
-          <tr><td>Foundations</td><td class="wkcol">1–8</td><td>a small GPT-style model and a measured training report</td></tr>
-          <tr><td>Adaptation</td><td class="wkcol">9–12</td><td>an assistant adapted with SFT, LoRA, preferences, and distillation</td></tr>
-          <tr><td>Inference core</td><td class="wkcol">13–18</td><td>a serving stack measured against a stated SLO and cost model</td></tr>
-          <tr><td>Capstone</td><td class="wkcol">19–26</td><td>guardrails, a benchmark, and a scoped public demo</td></tr>
+          <tr><td>Working with models</td><td class="wkcol">1–8</td><td>a fine-tuned model of my own, demoed</td></tr>
+          <tr><td>Building from scratch</td><td class="wkcol">9–16</td><td>a small GPT-style model and a measured training report</td></tr>
+          <tr><td>Inference core</td><td class="wkcol">17–22</td><td>a serving stack measured against a stated SLO and cost model</td></tr>
+          <tr><td>Depth and capstone</td><td class="wkcol">23–26</td><td>preference optimization, safety systems, and a scoped public demo</td></tr>
         </tbody>
       </table>
 
@@ -330,10 +329,10 @@ for _ in range(5):
 
     <div class="article-next">
       <span class="k">Next on the on-ramp</span>
-      <p class="nt">W0 · Part B: Tensors, Gradients, and Your Toolchain <span class="soon">in progress</span></p>
+      <p class="nt">Week 1: Tokens and Embeddings <span class="soon">in progress</span></p>
       <p style="font-size:0.92rem; color: var(--ink-2); max-width: 40rem;">
-        The only other post before Week 1: shapes as a learnable discipline, gradients without calculus
-        trauma, and a working toolchain. <a href="index.html#subscribe">Subscribe</a> and it lands in your
+        Next: how text becomes token ids and vectors, with a lab on a production tokenizer.
+        <a href="index.html#subscribe">Subscribe</a> and it lands in your
         inbox the day it ships. <em>Six months, ten hours a week, no magic.</em>
       </p>
     </div>
