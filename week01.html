@@ -16,6 +16,24 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
+<style>
+  /* Week 1 figures: pipeline diagram + layer chart */
+  .pipe-scroll { overflow-x: auto; }
+  .pipe-scroll svg { min-width: 620px; display: block; width: 100%; height: auto; }
+  .lyr-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 2px 0 10px; }
+  .lyr-btn {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line-2); border-radius: 999px;
+    padding: 5px 14px; cursor: pointer;
+  }
+  .lyr-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .lyr-btn:focus-visible, .lyr-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .lyr-read { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2); margin: 8px 0 0; min-height: 1.4em; }
+  #lyr-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  @media (prefers-reduced-motion: no-preference) {
+    .lyr-anim { transition: stroke-dashoffset 700ms ease; }
+  }
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -108,6 +126,94 @@
           Whatever separates the river from the money has to happen later.</p>
         </details>
       </section>
+
+      <figure class="ntp" aria-label="The pipeline from text to vectors, drawn as a diagram">
+        <figcaption class="ntp-head">
+          <span class="callout-label">The route, drawn out</span>
+          <span class="ntp-sub">Every stage below is a different object, and “embedding” gets used for
+          three of them. The lookup happens inside every transformer model; the pooling stage at the end
+          is how sentence-embedding models produce one vector for a whole text.</span>
+        </figcaption>
+        <div class="pipe-scroll">
+        <svg viewBox="0 0 790 306" role="img" aria-label="Diagram: text becomes tokens, tokens become ids, each id fetches one row of the embedding matrix, transformer layers mix in context, and pooling produces one vector per text.">
+          <defs>
+            <marker id="pipe-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- stage 1: text -->
+          <text x="48" y="130" text-anchor="middle" font-family="var(--serif)" font-style="italic" font-size="16" fill="var(--ink)">“The</text>
+          <text x="48" y="152" text-anchor="middle" font-family="var(--serif)" font-style="italic" font-size="16" fill="var(--ink)">investment</text>
+          <text x="48" y="174" text-anchor="middle" font-family="var(--serif)" font-style="italic" font-size="16" fill="var(--ink)">bank”</text>
+          <text x="48" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">text</text>
+
+          <line x1="96" y1="152" x2="118" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
+
+          <!-- stage 2: tokens -->
+          <g font-family="var(--mono)" font-size="13.5">
+            <rect x="126" y="87" width="106" height="28" rx="7" fill="none" stroke="var(--line-2)"/>
+            <text x="179" y="106" text-anchor="middle" fill="var(--ink)">The</text>
+            <rect x="126" y="138" width="106" height="28" rx="7" fill="none" stroke="var(--line-2)"/>
+            <text x="179" y="157" text-anchor="middle" fill="var(--ink)">·investment</text>
+            <rect x="126" y="189" width="106" height="28" rx="7" fill="none" stroke="var(--line-2)"/>
+            <text x="179" y="208" text-anchor="middle" fill="var(--ink)">·bank</text>
+          </g>
+          <text x="179" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">tokens</text>
+
+          <line x1="238" y1="152" x2="260" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
+
+          <!-- stage 3: ids -->
+          <g font-family="var(--mono)" font-size="14">
+            <text x="294" y="106" text-anchor="middle" fill="var(--ink)">464</text>
+            <text x="294" y="157" text-anchor="middle" fill="var(--ink)">4896</text>
+            <text x="294" y="208" text-anchor="middle" fill="var(--accent)">3331</text>
+          </g>
+          <text x="294" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">token ids</text>
+
+          <line x1="326" y1="152" x2="348" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
+
+          <!-- stage 4: embedding matrix -->
+          <rect x="356" y="52" width="112" height="200" rx="8" fill="none" stroke="var(--line-2)"/>
+          <g stroke="var(--line)">
+            <line x1="356" y1="77" x2="468" y2="77"/>
+            <line x1="356" y1="102" x2="468" y2="102"/>
+            <line x1="356" y1="127" x2="468" y2="127"/>
+            <line x1="356" y1="152" x2="468" y2="152"/>
+            <line x1="356" y1="177" x2="468" y2="177"/>
+            <line x1="356" y1="202" x2="468" y2="202"/>
+            <line x1="356" y1="227" x2="468" y2="227"/>
+          </g>
+          <rect x="357" y="178" width="110" height="23" fill="var(--accent)" opacity="0.18"/>
+          <text x="412" y="194" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--accent)">row 3331</text>
+          <text x="412" y="44" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--ink-2)">50,257 × 768</text>
+          <text x="412" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">one vector per token</text>
+
+          <line x1="476" y1="152" x2="498" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
+
+          <!-- stage 5: transformer layers -->
+          <rect x="506" y="72" width="128" height="38" rx="9" fill="none" stroke="var(--line-2)"/>
+          <text x="570" y="96" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">layer 1</text>
+          <text x="570" y="136" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--ink-2)">⋮</text>
+          <rect x="506" y="154" width="128" height="38" rx="9" fill="none" stroke="var(--line-2)"/>
+          <text x="570" y="178" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">layer 12</text>
+          <path d="M 520 214 C 542 234 598 234 620 214" fill="none" stroke="var(--accent)" stroke-width="1.3" opacity="0.75" marker-end="url(#pipe-arr)"/>
+          <path d="M 620 64 C 598 44 542 44 520 64" fill="none" stroke="var(--accent)" stroke-width="1.3" opacity="0.75" marker-end="url(#pipe-arr)"/>
+          <text x="570" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">context mixed in</text>
+
+          <line x1="642" y1="152" x2="664" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
+
+          <!-- stage 6: pooled vector -->
+          <rect x="704" y="139" width="26" height="26" rx="6" fill="var(--accent)" opacity="0.85"/>
+          <text x="717" y="196" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">one vector</text>
+          <text x="717" y="213" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">per text</text>
+          <text x="717" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">pooling</text>
+        </svg>
+        </div>
+        <p class="ntp-note">The ids on the arrows are measured: GPT-2 tokenizes “The investment bank” to
+        464, 4896, 3331. The curved arrows on the layer stack are what the middle of this essay
+        measures: positions exchanging information.</p>
+      </figure>
 
       <h2 id="tokens">How text becomes ids</h2>
 
@@ -238,6 +344,28 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
             for L in (0, 12)]
     print(a + b, sims)</code></pre>
       </div>
+
+      <figure class="ntp" id="lyr">
+        <figcaption class="ntp-head">
+          <span class="callout-label">The same measurement at every layer</span>
+          <span class="ntp-sub">Cosine similarity between the “bank” vectors for all six sentence pairs,
+          at each of the thirteen layers (the input layer, then twelve transformer layers). Bold teal:
+          mean of the same-sense pairs (A–B, C–D). Bold dashed: mean of the four cross-sense pairs. Thin
+          lines are the individual pairs, from the same run as every other number here.</span>
+        </figcaption>
+        <div class="lyr-ctl" role="group" aria-label="Choose a model">
+          <button type="button" class="lyr-btn" data-model="bert" aria-pressed="true">bert-base-uncased</button>
+          <button type="button" class="lyr-btn" data-model="gpt2" aria-pressed="false">gpt2</button>
+        </div>
+        <div id="lyr-chart"></div>
+        <p class="lyr-read" id="lyr-read"></p>
+        <p class="ntp-note">BERT pulls the cross-sense pairs away from the same-sense pairs almost
+        immediately and keeps them apart. Flip to GPT-2: the two means sag together, then both snap back
+        toward 1.0 at the final layer, which is the narrow cone closing. Hover, tap, or use arrow keys to
+        read any layer.</p>
+        <noscript><p class="ntp-sub">This chart needs JavaScript. The numbers for layers 0, 6, and 12 are
+        in the prose above, and the notebook prints the full curves.</p></noscript>
+      </figure>
 
       <p>GPT-2 did not produce that picture. I expected the same separation, weaker perhaps, and instead
       got nothing: same-sense pairs at the final layer average 0.983 and cross-sense pairs 0.984.
@@ -379,6 +507,145 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
   </div>
 </footer>
 
+<script>
+  (function () {
+    var D = {
+      "bert": {
+        "label": "bert-base-uncased",
+        "pairs": {"AB":[1.0,0.8989,0.8825,0.8439,0.8329,0.8148,0.8107,0.7818,0.7873,0.7792,0.7954,0.8114,0.7908],"CD":[0.9359,0.7721,0.7256,0.7033,0.6928,0.6708,0.6444,0.6489,0.6703,0.6673,0.6949,0.7141,0.692],"AC":[0.9502,0.6289,0.5766,0.4968,0.4403,0.4185,0.3914,0.4033,0.3908,0.3781,0.4088,0.4624,0.373],"AD":[0.9713,0.7155,0.6269,0.5839,0.5288,0.5236,0.5258,0.4623,0.4427,0.4241,0.4473,0.5055,0.4705],"BC":[0.9502,0.6594,0.6145,0.5451,0.5067,0.5034,0.4601,0.4596,0.4291,0.4212,0.446,0.499,0.4275],"BD":[0.9713,0.7627,0.6824,0.638,0.5953,0.5823,0.598,0.5353,0.5029,0.4785,0.5011,0.5562,0.5411]},
+        "same": [0.9679,0.8355,0.804,0.7736,0.7629,0.7428,0.7275,0.7154,0.7288,0.7232,0.7451,0.7628,0.7414],
+        "cross": [0.9607,0.6916,0.6251,0.5659,0.5178,0.507,0.4938,0.4651,0.4414,0.4255,0.4508,0.5058,0.453]
+      },
+      "gpt2": {
+        "label": "gpt2",
+        "pairs": {"AB":[0.9978,0.9662,0.9678,0.9486,0.9291,0.9092,0.8775,0.8677,0.8624,0.8574,0.8495,0.8882,0.9947],"CD":[0.9424,0.9635,0.9447,0.916,0.8579,0.8297,0.8253,0.8309,0.8468,0.8311,0.8058,0.843,0.9715],"AC":[0.9424,0.952,0.9203,0.8847,0.8258,0.8119,0.7901,0.7792,0.785,0.7736,0.7462,0.8232,0.9709],"AD":[1.0,0.9825,0.9652,0.9436,0.909,0.8823,0.8734,0.8689,0.8757,0.8674,0.8572,0.8854,0.9963],"BC":[0.9573,0.9113,0.8871,0.8382,0.7702,0.7614,0.7481,0.747,0.737,0.7188,0.6684,0.7567,0.9801],"BD":[0.9978,0.9429,0.9352,0.891,0.8479,0.8158,0.7969,0.801,0.7867,0.7679,0.7486,0.7989,0.9899]},
+        "same": [0.9701,0.9648,0.9563,0.9323,0.8935,0.8695,0.8514,0.8493,0.8546,0.8442,0.8276,0.8656,0.9831],
+        "cross": [0.9744,0.9472,0.9269,0.8894,0.8382,0.8178,0.8021,0.799,0.7961,0.7819,0.7551,0.8161,0.9843]
+      }
+    };
+    var SAME = {"AB": true, "CD": true};
+    var host = document.getElementById("lyr-chart");
+    var read = document.getElementById("lyr-read");
+    if (!host) return;
+    var NS = "http://www.w3.org/2000/svg";
+    var W = 640, H = 350, ML = 42, MR = 12, MT = 16, MB = 30;
+    var model = "bert", curLayer = 12, guide = null, drawn = false;
+
+    function X(L) { return ML + (L / 12) * (W - ML - MR); }
+    function Y(v) { return MT + (1 - (v - 0.3) / 0.7) * (H - MT - MB); }
+    function el(name, attrs, parent) {
+      var e = document.createElementNS(NS, name);
+      for (var k in attrs) e.setAttribute(k, attrs[k]);
+      parent.appendChild(e);
+      return e;
+    }
+    function pathFor(vals) {
+      var d = "";
+      for (var L = 0; L < 13; L++) d += (L ? " L " : "M ") + X(L).toFixed(1) + " " + Y(vals[L]).toFixed(1);
+      return d;
+    }
+    function setRead(L) {
+      curLayer = L;
+      var m = D[model];
+      read.textContent = m.label + " · layer " + L + " · same-sense mean " + m.same[L] +
+        " · cross-sense mean " + m.cross[L];
+      if (guide) {
+        guide.setAttribute("x1", X(L)); guide.setAttribute("x2", X(L));
+        guide.setAttribute("opacity", "1");
+      }
+    }
+    function animate(p) {
+      var len = p.getTotalLength();
+      p.setAttribute("stroke-dasharray", len);
+      p.setAttribute("stroke-dashoffset", len);
+      p.getBoundingClientRect();
+      p.classList.add("lyr-anim");
+      p.setAttribute("stroke-dashoffset", "0");
+    }
+    function render(withAnim) {
+      host.textContent = "";
+      var svg = el("svg", {viewBox: "0 0 " + W + " " + H, "class": "lyr-svg", tabindex: "0", role: "img",
+        "aria-label": "Line chart of cosine similarity by layer for " + D[model].label +
+        ". Use left and right arrow keys to read values per layer."}, host);
+      var g;
+      for (var v = 3; v <= 10; v++) {
+        var yy = Y(v / 10);
+        el("line", {x1: ML, y1: yy, x2: W - MR, y2: yy, stroke: "var(--line)", "stroke-width": 1}, svg);
+        el("text", {x: ML - 7, y: yy + 4, "text-anchor": "end", "font-family": "var(--mono)",
+          "font-size": 13, fill: "var(--ink-2)"}, svg).textContent = (v / 10).toFixed(1);
+      }
+      for (var L = 0; L < 13; L++) {
+        el("text", {x: X(L), y: H - 8, "text-anchor": "middle", "font-family": "var(--mono)",
+          "font-size": 13, fill: "var(--ink-2)"}, svg).textContent = L;
+      }
+      el("text", {x: W - MR, y: H - 9, "text-anchor": "start", "font-family": "var(--sans)",
+        "font-size": 10.5, fill: "var(--ink-2)"}, svg);
+      var m = D[model];
+      for (var p in m.pairs) {
+        el("path", {d: pathFor(m.pairs[p]), fill: "none",
+          stroke: SAME[p] ? "var(--accent)" : "var(--ink-2)",
+          opacity: SAME[p] ? 0.30 : 0.20, "stroke-width": 1.1}, svg);
+      }
+      var meanSame = el("path", {d: pathFor(m.same), fill: "none", stroke: "var(--accent)",
+        "stroke-width": 2.6, "stroke-linecap": "round"}, svg);
+      var meanCross = el("path", {d: pathFor(m.cross), fill: "none", stroke: "var(--ink-2)",
+        "stroke-width": 2.2, "stroke-linecap": "round", "stroke-dasharray": "6 5"}, svg);
+      guide = el("line", {x1: X(curLayer), y1: MT, x2: X(curLayer), y2: H - MB,
+        stroke: "var(--line-2)", "stroke-width": 1, opacity: 0}, svg);
+      var lg = el("g", {"font-family": "var(--sans)", "font-size": 13.5}, svg);
+      el("rect", {x: ML + 6, y: MT + 2, width: 232, height: 46, rx: 6, fill: "var(--surface)", opacity: 0.88}, lg);
+      el("line", {x1: ML + 14, y1: MT + 12, x2: ML + 44, y2: MT + 12, stroke: "var(--accent)", "stroke-width": 2.6}, lg);
+      el("text", {x: ML + 50, y: MT + 17, fill: "var(--ink)"}, lg).textContent = "same sense (A–B, C–D)";
+      el("line", {x1: ML + 14, y1: MT + 32, x2: ML + 44, y2: MT + 32, stroke: "var(--ink-2)", "stroke-width": 2.2, "stroke-dasharray": "6 5"}, lg);
+      el("text", {x: ML + 50, y: MT + 37, fill: "var(--ink)"}, lg).textContent = "cross sense";
+      if (withAnim) {
+        var dash = meanCross.getAttribute("stroke-dasharray");
+        animate(meanSame);
+        meanCross.setAttribute("stroke-dasharray", "");
+        animate(meanCross);
+        setTimeout(function () {
+          meanCross.classList.remove("lyr-anim");
+          meanCross.setAttribute("stroke-dasharray", dash);
+          meanCross.removeAttribute("stroke-dashoffset");
+        }, 760);
+      }
+      function layerFromEvent(ev) {
+        var r = svg.getBoundingClientRect();
+        var px = (ev.clientX - r.left) / r.width * W;
+        var L = Math.round((px - ML) / (W - ML - MR) * 12);
+        return Math.max(0, Math.min(12, L));
+      }
+      svg.addEventListener("pointermove", function (ev) { setRead(layerFromEvent(ev)); });
+      svg.addEventListener("pointerdown", function (ev) { setRead(layerFromEvent(ev)); });
+      svg.addEventListener("keydown", function (ev) {
+        if (ev.key === "ArrowLeft") { setRead(Math.max(0, curLayer - 1)); ev.preventDefault(); }
+        if (ev.key === "ArrowRight") { setRead(Math.min(12, curLayer + 1)); ev.preventDefault(); }
+      });
+      setRead(curLayer);
+    }
+    var btns = document.querySelectorAll(".lyr-btn");
+    Array.prototype.forEach.call(btns, function (b) {
+      b.addEventListener("click", function () {
+        if (b.getAttribute("aria-pressed") === "true") return;
+        Array.prototype.forEach.call(btns, function (x) {
+          x.setAttribute("aria-pressed", x === b ? "true" : "false");
+        });
+        model = b.getAttribute("data-model");
+        render(true);
+      });
+    });
+    render(false);
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        if (drawn) return;
+        if (entries.some(function (e) { return e.isIntersecting; })) {
+          drawn = true; io.disconnect(); render(true);
+        }
+      }, {threshold: 0.35});
+      io.observe(host);
+    }
+  })();
+</script>
 <script>
   (function () {
     var btn = document.querySelector("[data-copy]");
