@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokens, Context, and Embeddings · The LLM Residency, Week 1</title>
+<meta name="description" content="How text becomes token ids and vectors, measured on four sentences: one word, two senses, three representations.">
+<meta property="og:title" content="Tokens, Context, and Embeddings · The LLM Residency">
+<meta property="og:description" content="The same word enters the model as the same number and the same vector, whichever sense it carries. Where meaning enters, measured.">
+<meta property="og:type" content="article">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='%23f9f9f7'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/atom+xml" title="The LLM Residency" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container">
+    <a class="wordmark" href="index.html">The LLM Residency</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="resources.html" class="nav-hide-m">Resources</a>
+      <a href="feed.xml" class="nav-hide-m">RSS</a>
+      <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <header class="article-header">
+      <p class="kicker">Week 1 · Working with models</p>
+      <h1>Tokens, Context, and Embeddings</h1>
+      <p class="dek">The word “bank” enters GPT-2 as the same number and the same vector whether it sits
+      by a river or approves a merger. This week: how text becomes ids, where meaning enters, and what
+      that looks like measured on four sentences.</p>
+      <div class="article-meta">
+        <span>≈ 11 min read</span>
+        <span>Last verified 2026-07-26</span>
+        <span>Working notes</span>
+        <span id="ppq-meta" hidden></span>
+      </div>
+    </header>
+
+    <article class="prose">
+
+      <aside class="callout" aria-label="Skip test">
+        <span class="callout-label">Skip test</span>
+        <p>Answer these three and you can jump straight to <a href="#lab">the lab</a>:</p>
+        <ol>
+          <li>In GPT-2’s tokenizer, “bank” with a leading space and “bank” without one get different ids. Why?</li>
+          <li>Two occurrences of the same token start from the same row of the same table. Where does the
+          difference in meaning enter?</li>
+          <li>Measured with cosine similarity, BERT’s final layer separates the river sense of “bank” from the
+          finance sense, and GPT-2’s final layer does not. Name one reason.</li>
+        </ol>
+        <p class="fine">#3 surprised me when I measured it. The middle of this essay is about what I found.</p>
+      </aside>
+
+      <p>Week 0’s model read text one character at a time, with a vocabulary of 27: the lowercase alphabet
+      plus a boundary marker. GPT-2’s tokenizer has 50,257 entries. This week is about what lives in that
+      gap, and about what happens to a piece of text after it becomes numbers.</p>
+
+      <p>The reading was two books’ treatment of the same topic, and they use the word “embedding” for
+      different objects. Rather than pick a definition, I picked a question small enough to answer
+      with code.</p>
+
+      <h2 id="question">One word, two meanings</h2>
+
+      <p>Take four sentences. Two use “bank” to mean the edge of a river, two use it to mean a financial
+      institution:</p>
+
+      <ul>
+        <li><strong>A.</strong> They fished from the muddy bank of the river.</li>
+        <li><strong>B.</strong> She sat on the river bank all afternoon.</li>
+        <li><strong>C.</strong> The investment bank approved the merger.</li>
+        <li><strong>D.</strong> He deposited the check at the bank.</li>
+      </ul>
+
+      <p>Any English reader resolves the two senses without noticing. The question is what a language model
+      sees. Everything below is measured: the four sentences went through GPT-2, through
+      <code>bert-base-uncased</code>, and through a sentence-embedding model, and every number in this essay
+      comes from executed code. The <a href="#lab">notebook</a> reproduces all of it.</p>
+
+      <section class="ppq" data-q="1" data-answer="same">
+        <p class="ppq-kicker">Pause and predict · 1 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Before reading on: when sentences A and D go into GPT-2, how does the word “bank” arrive?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="diffid"><span>As different token ids: the tokenizer uses the surrounding words to resolve the sense</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="same"><span>As the same token id, pointing at the same starting vector, in both sentences</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="split"><span>It depends on the sentence: sometimes “bank” splits into smaller pieces</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>In all four sentences, “ bank” (with its leading space) is token id 3331. The tokenizer is a
+          pure text-to-ids function: it never looks at meaning, so it cannot resolve senses. And id 3331
+          indexes one fixed row of the input embedding table, so both sentences start from the same vector.
+          Whatever separates the river from the money has to happen later.</p>
+        </details>
+      </section>
+
+      <h2 id="tokens">How text becomes ids</h2>
+
+      <p>GPT-2’s tokenizer is a byte-level BPE, for byte-pair encoding. Building one is a counting exercise:
+      start with 256 symbols, one per possible byte, then repeatedly find the most frequent adjacent pair in
+      the training text and merge it into a new symbol, recording the merge. GPT-2’s vocabulary is exactly
+      that arithmetic: 256 bytes, plus 50,000 recorded merges, plus one special end-of-text marker, is
+      50,257 entries. Tokenizing new text replays the recorded merges, in order, on each chunk of the
+      input.</p>
+
+      <p>The result is stranger than the description suggests. Here is sentence A as GPT-2 receives it,
+      with <code>·</code> marking spaces that belong to the token:</p>
+
+      <p><code>They</code> <code>·f</code> <code>ished</code> <code>·from</code> <code>·the</code>
+      <code>·muddy</code> <code>·bank</code> <code>·of</code> <code>·the</code> <code>·river</code>
+      <code>.</code></p>
+
+      <p>Three things worth noticing, all of which generalize:</p>
+
+      <ul>
+        <li><strong>Spaces belong to tokens.</strong> “ bank” with a leading space is id 3331; “bank”
+        without one is id 17796. To the model these are two unrelated entries, which is why the same word
+        can behave differently at the start of a line.</li>
+        <li><strong>Frequency, not the dictionary, decides the splits.</strong> “muddy” survives as one
+        piece while “fished” shatters into “ f” + “ished”, because the merge list was built from
+        co-occurrence counts in the training text, not from a list of words.</li>
+        <li><strong>The id itself is arbitrary.</strong> 3331 carries no information except “row 3331 of
+        the table.” Nothing about the number encodes riverness, money, or even wordness.</li>
+      </ul>
+
+      <p class="lab-cta">
+        <a class="btn btn-ghost" href="tokenizer.html">Open the Tokenizer Playground →</a>
+        <span class="note">GPT-2’s tokenizer running in your browser: type anything and watch it split.
+        The full vocabulary and merge list load into the page.</span>
+      </p>
+
+      <h2 id="row">The first vector: a row in a table</h2>
+
+      <p>Inside the model, the first thing that happens to id 3331 is a lookup. GPT-2 holds an embedding
+      matrix of 50,257 rows, one per vocabulary entry, 768 numbers each. Those numbers are ordinary learned
+      parameters: they start random and get adjusted during training like every other weight. Id 3331 fetches
+      row 3331, the same row in every sentence, every document, every time.</p>
+
+      <p>The measurement confirms how literal this is. I compared vectors with cosine similarity, which
+      scores how nearly two vectors point in the same direction; 1.0 means the directions are identical. At
+      the input layer, the vector for “bank” in sentence A and the vector for “bank” in sentence D score
+      exactly 1.0: the same vector, because “bank” happens to sit at the same position in both sentences.
+      Between A and B the score is 0.9978, and at this layer the input is only the token’s row plus a
+      position vector, so position is the only thing that can differ.</p>
+
+      <p>So this is the first thing people mean by “embedding”: the input lookup table. It is one vector per
+      vocabulary entry, no context anywhere in sight. If the story stopped here, both senses of “bank” would
+      share one identical representation.</p>
+
+      <h2 id="layers">What twelve layers do to one word</h2>
+
+      <p>The story does not stop there. GPT-2 and BERT each pass those input vectors through twelve
+      transformer layers, and each layer lets a position mix in information from other positions: BERT
+      looks at the whole sentence in both directions, GPT-2 only at the words that came before. By the
+      top of the stack, the vector at the position of “bank” is no longer a fact about the token. It is a
+      fact about the token in this sentence.</p>
+
+      <section class="ppq" data-q="2" data-answer="bert">
+        <p class="ppq-kicker">Pause and predict · 2 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Both models compute context-dependent vectors. Measured by cosine similarity at the final
+          layer, which one separates river-bank from money-bank more cleanly?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="gpt2"><span>GPT-2: it is the direct ancestor of today’s chat models</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="bert"><span>BERT: it reads the whole sentence in both directions</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="both"><span>Both separate the senses about equally well</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>BERT, decisively. At BERT’s final layer, same-sense pairs of “bank” average 0.741 cosine
+          similarity and cross-sense pairs average 0.453: a clean gap. At GPT-2’s final layer the averages
+          are 0.983 and 0.984: no gap at all. Part of the reason is architectural (BERT attends in both
+          directions, and it was trained to reconstruct masked words, a task that rewards representing
+          meaning at each position). Part of it is a known measurement problem with GPT-2’s final layer,
+          described below.</p>
+        </details>
+      </section>
+
+      <p>Here is the centerpiece measurement. For each model I extracted the hidden vector at the position
+      of “bank” in each of the four sentences and compared all six pairs. BERT behaves exactly as the
+      textbooks promise. At its input layer the vectors are near-identical across sentences, because they
+      are the same table row. By the final layer, the two river-banks agree with each other at 0.791, the
+      two money-banks at 0.692, and every cross-sense pair has fallen to between 0.373 and 0.541. The model
+      was never told these sentences involve two senses. The separation emerged from mixing in context.</p>
+
+      <p>The compact version of that measurement fits in one screen:</p>
+
+      <div class="codeblock">
+        <div class="codebar">
+          <span class="lang">Python</span>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+<pre><code>import torch
+from transformers import AutoTokenizer, AutoModel
+
+sents = {
+    <span class="s">"A"</span>: <span class="s">"They fished from the muddy bank of the river."</span>,
+    <span class="s">"B"</span>: <span class="s">"She sat on the river bank all afternoon."</span>,
+    <span class="s">"C"</span>: <span class="s">"The investment bank approved the merger."</span>,
+    <span class="s">"D"</span>: <span class="s">"He deposited the check at the bank."</span>,
+}
+
+tok = AutoTokenizer.from_pretrained(<span class="s">"bert-base-uncased"</span>)
+model = AutoModel.from_pretrained(<span class="s">"bert-base-uncased"</span>,
+                                  output_hidden_states=True)
+model.eval()
+
+vecs = {}
+with torch.no_grad():
+    for k, s in sents.items():
+        enc = tok(s, return_tensors=<span class="s">"pt"</span>)
+        toks = tok.convert_ids_to_tokens(enc[<span class="s">"input_ids"</span>][0])
+        i = toks.index(<span class="s">"bank"</span>)   <span class="c"># one occurrence per sentence</span>
+        states = model(**enc).hidden_states
+        <span class="c"># keep the input layer and the final layer</span>
+        vecs[k] = {L: states[L][0, i] for L in (0, 12)}
+
+cos = torch.nn.functional.cosine_similarity
+for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span class="s">"AC"</span>, <span class="s">"AD"</span>, <span class="s">"BC"</span>, <span class="s">"BD"</span>]:
+    sims = [round(float(cos(vecs[a][L], vecs[b][L], dim=0)), 3)
+            for L in (0, 12)]
+    print(a + b, sims)</code></pre>
+      </div>
+
+      <p>GPT-2 did not produce that picture. I expected the same separation, weaker perhaps, and instead
+      got nothing: same-sense pairs at the final layer average 0.983 and cross-sense pairs 0.984.
+      By this measurement, GPT-2’s top layer treats “muddy bank” and “investment bank” as near-identical.
+      The middle of the network shows a small gap (0.851 against 0.802 at layer six), and even that
+      disappears by the top.</p>
+
+      <p>Part of the explanation is the measuring stick, not the model. Ethayarajh studied exactly this in
+      2019: vectors in GPT-2’s upper layers crowd into a narrow cone, so much so that even unrelated words
+      score nearly as high as related ones, and cosine similarity stops discriminating there. So before
+      concluding anything about the representation, I asked GPT-2 the question it was trained to answer:
+      which token comes next? After “The investment bank”, four of its five strongest guesses are “’s”,
+      “has”, “said”, and “is”: a company about to do something. After “the muddy bank”, the two strongest
+      are “of” and “and”: scenery in the middle of a description. The sense information survived all
+      twelve layers. My cosine probe could not see it.</p>
+
+      <p>What I am keeping from this is the difference between a representation and a probe. The context
+      was in there; the first tool I pointed at it was too blunt. I suspect this will not be the last time
+      this journal confuses “my measurement shows nothing” with “there is nothing.”</p>
+
+      <h2 id="sentence">The third representation: one vector per sentence</h2>
+
+      <p>Everything so far assigns a vector to each token. Retrieval systems, semantic search, and most
+      “embeddings APIs” do something different: they pool the token vectors into a single vector for the
+      whole text, using models fine-tuned so that similar texts land near each other. This is the other
+      thing people mean by “embedding”, and the collision between the two meanings is, as far as I can
+      tell, the single biggest source of confusion in tutorials.</p>
+
+      <p>I ran the four sentences through <code>all-MiniLM-L6-v2</code>, a small sentence-embedding model
+      that maps any text to 384 numbers. Then I embedded two search queries and ranked the sentences by
+      cosine similarity, which is retrieval in miniature:</p>
+
+      <table>
+        <thead>
+          <tr><th scope="col">Query</th><th scope="col">Ranking (cosine similarity)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>“financial institution”</td><td class="wkcol">C 0.344 · D 0.275 · B 0.076 · A 0.037</td></tr>
+          <tr><td>“the edge of a river”</td><td class="wkcol">A 0.513 · B 0.361 · D 0.143 · C 0.094</td></tr>
+        </tbody>
+      </table>
+
+      <p>“Financial institution” shares no word with either finance sentence, yet ranks both of them far
+      above both river sentences. The river query has an easier job (sentence A contains “river”), but the
+      margins are wide in both directions, and that gap is what vector databases are built on.</p>
+
+      <p>One caution from the same run: the raw pairwise similarities between the four sentences are much
+      messier than the query rankings. “She sat on the river bank all afternoon” scores nearly as close to
+      “He deposited the check at the bank” (0.324) as to its fellow river sentence (0.366), presumably
+      because both are short narrative sentences about a person at a place. Sentence embeddings judge whole
+      sentences, not the word you happen to care about. Retrieval works despite this; it is worth knowing
+      why it sometimes does not.</p>
+
+      <figure class="flowline" aria-label="The pipeline from text to vectors">
+        <span>Text</span><span class="arr" aria-hidden="true">→</span><span>Tokens</span><span class="arr" aria-hidden="true">→</span><span>Ids</span><span class="arr" aria-hidden="true">→</span><span>Input vectors</span><span class="arr" aria-hidden="true">→</span><span class="core">Contextual vectors</span><span class="arr" aria-hidden="true">→</span><span class="core">One vector per text</span>
+      </figure>
+
+      <p>That is the pipeline this week traced. The word “embedding” gets used for three different objects
+      along it: the lookup row, the contextual vector, and the pooled text vector. When a tutorial or an
+      API says “embedding”, the useful question is which of the three it means.</p>
+
+      <h2 id="reading">What I read this week</h2>
+
+      <p><a href="https://github.com/HandsOnLLM/Hands-On-Large-Language-Models"><em>Hands-On Large
+      Language Models</em></a> (Alammar and Grootendorst), chapter 2, is the cleanest
+      walkthrough of this pipeline I found, and it is where I took the three-representations frame from:
+      the chapter walks token embeddings, contextualized embeddings, and text embeddings as distinct
+      objects, with the clearest diagrams I have seen on the topic. If this essay moved too fast, that
+      chapter is the slower, illustrated version of the same route.</p>
+
+      <p><a href="https://books.google.com/books/about/Large_Language_Models_the_Hard_Parts.html?id=hXuj0QEACAAJ"><em>Large
+      Language Models: The Hard Parts</em></a> (Souza and Regenstein) enters the topic from the
+      opposite end. Its vector-embeddings material (pages 104–115 in my copy) assumes you already have a
+      sentence-embedding model and asks the production questions: where to store the vectors, how to chunk
+      documents, when to rerank results. There is no tokenization in it at all; the chapter simply starts
+      where this essay stops. I expect to meet it again properly when the
+      residency reaches retrieval systems in <span class="wkchip">Week 5</span>.</p>
+
+      <h2 id="lab">Run it yourself</h2>
+
+      <p>The notebook runs the full experiment on a free CPU: both models, all twelve layers, the
+      next-token check, the sentence embeddings, and the retrieval queries, with self-checks that assert
+      the token ids and the sense separation before showing results. First run downloads about
+      1&nbsp;GB of model weights.</p>
+
+      <p class="lab-cta">
+        <a class="btn btn-ghost" href="https://colab.research.google.com/github/revanthreddy-hai/the-llm-residency/blob/main/labs/week01_tokens_context_embeddings.ipynb">Open the lab in Colab →</a>
+        <span class="note">Environment for the numbers in this essay: Python 3.11.15, torch 2.13.0,
+        transformers 5.14.1, sentence-transformers 5.6.1, models <code>gpt2</code> (revision 607a30d),
+        <code>bert-base-uncased</code> (revision 86b5e09), <code>all-MiniLM-L6-v2</code>.</span>
+      </p>
+
+      <h2 id="sources">Sources &amp; further reading</h2>
+
+      <ul class="sources">
+        <li><a href="https://huggingface.co/docs/transformers/tokenizer_summary">Hugging Face,
+        <em>Summary of the tokenizers</em></a>: BPE, WordPiece, and SentencePiece compared, with worked
+        examples.</li>
+        <li><a href="https://www.youtube.com/watch?v=zduSFxRajkE">Karpathy,
+        <em>Let’s build the GPT Tokenizer</em></a> (2024): two hours of building byte-level BPE from
+        scratch, including the failure modes.</li>
+        <li><a href="https://arxiv.org/abs/1909.00512">Ethayarajh, <em>How Contextual are Contextualized
+        Word Representations?</em></a> (2019): the anisotropy measurement behind the GPT-2 result above.</li>
+        <li><a href="https://arxiv.org/abs/1908.10084">Reimers and Gurevych, <em>Sentence-BERT</em></a>
+        (2019): the training recipe that turned contextual models into useful sentence embedders.</li>
+        <li><a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2
+        model card</a>: the exact sentence-embedding model used in the lab, including its pooling setup.</li>
+      </ul>
+
+    </article>
+
+    <div class="article-next">
+      <span class="k">Next in Working with models</span>
+      <p class="nt">Week 2: Looking Inside a Transformer <span class="soon">not started</span></p>
+      <p style="font-size:0.92rem; color: var(--ink-2); max-width: 40rem;">
+        Next: what those twelve layers are made of. Attention, feed-forward blocks, and the residual
+        stream, with the same measure-first approach.
+        <a href="index.html#subscribe">Subscribe</a> and it lands in your inbox the day it ships.
+        <em>Six months, ten hours a week, no magic.</em>
+      </p>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="fm">The LLM Residency</span>
+    <nav aria-label="Footer">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="resources.html">Resources</a>
+      <a href="index.html#method">How it’s checked</a>
+      <a href="index.html#subscribe">Subscribe</a>
+      <a href="feed.xml">RSS</a>
+    </nav>
+    <p class="fine">Written from inside a real industrial LLM training residency, on open models and public sources.
+    This journal is personal. The notes, opinions, and mistakes are mine, not my employer’s.
+    © 2026 The LLM Residency.</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var btn = document.querySelector("[data-copy]");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var code = btn.closest(".codeblock").querySelector("pre code");
+      var text = code.textContent;
+      function done(ok) {
+        btn.textContent = ok ? "Copied ✓" : "Select & copy";
+        setTimeout(function () { btn.textContent = "Copy"; }, 2000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      } else {
+        done(false);
+      }
+    });
+  })();
+</script>
+<script>
+  (function () {
+    var FB = {
+      "1": {
+        "same": "Yes. In all four sentences, “ bank” is token id 3331, indexing the same row of GPT-2’s input table. The tokenizer never looks at meaning, so it cannot resolve senses; that has to happen later, inside the model.",
+        "diffid": "The tokenizer cannot do this. It is a pure text-to-ids function that replays a fixed list of learned merges; it has no access to meaning or context. Measured: “ bank” is id 3331 in all four sentences.",
+        "split": "“ bank” is frequent enough in the training text to have survived as a single vocabulary entry, so it never splits: id 3331 in all four sentences. Splitting happens to rarer strings, like “fished” becoming “ f” + “ished”."
+      },
+      "2": {
+        "bert": "Right. BERT’s final layer: same-sense pairs average 0.741, cross-sense 0.453. GPT-2’s final layer: 0.983 against 0.984, no separation. BERT attends in both directions, so both “muddy” and “of the river” can flow into the bank position.",
+        "gpt2": "The measurement says otherwise: GPT-2’s final layer scores same-sense pairs at 0.983 and cross-sense at 0.984, no separation at all. The essay shows this is partly the probe’s fault: GPT-2’s upper-layer vectors crowd into a narrow cone, which blunts cosine similarity, and its next-token guesses after “The investment bank” still show it knows which sense is in play.",
+        "both": "They differ sharply. BERT separates the senses cleanly (0.741 same-sense against 0.453 cross-sense at the final layer); GPT-2 shows no gap there (0.983 against 0.984). The essay walks through why: cosine similarity stops discriminating in GPT-2’s upper layers, while GPT-2’s next-token guesses after “The investment bank” show the sense information is still present."
+      }
+    };
+    var KEY = "llmres-ppq-w01@2026-07-26";
+    var state = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      state = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch (e) { state = {}; }
+
+    var sections = Array.prototype.slice.call(document.querySelectorAll(".ppq"));
+    var meta = document.getElementById("ppq-meta");
+    if (!sections.length) return;
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function reviewedCount() {
+      var n = 0;
+      sections.forEach(function (sec) { if (state[sec.getAttribute("data-q")]) n++; });
+      return n;
+    }
+
+    function renderMeta() {
+      var n = reviewedCount();
+      if (!meta) return;
+      if (n === 0) { meta.hidden = true; return; }
+      meta.hidden = false;
+      meta.textContent = n + " of " + sections.length + " reviewed";
+    }
+
+    function tagAnswer(sec) {
+      var ans = sec.getAttribute("data-answer");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        var input = row.querySelector("input"), text = row.querySelector("span");
+        if (input.value === ans && text && !text.querySelector(".ppq-ans-tag")) {
+          var t = document.createElement("span");
+          t.className = "ppq-ans-tag";
+          t.textContent = " · answer";
+          text.appendChild(t);
+        }
+      });
+    }
+
+    function apply(sec, value, announce) {
+      var q = sec.getAttribute("data-q");
+      var fb = sec.querySelector(".ppq-fb");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        row.classList.toggle("is-picked", row.querySelector("input").value === value);
+      });
+      sec.classList.add("is-done");
+      tagAnswer(sec);
+      if (value && value !== "reveal") {
+        if (announce) fb.setAttribute("role", "status");
+        var word = value === sec.getAttribute("data-answer") ? "" : "Not this one. ";
+        fb.textContent = word + FB[q][value];
+        var input = sec.querySelector("input[value=\"" + value + "\"]");
+        if (input) input.checked = true;
+      }
+    }
+
+    sections.forEach(function (sec) {
+      var q = sec.getAttribute("data-q");
+      sec.addEventListener("change", function (e) {
+        if (e.target && e.target.type === "radio") {
+          state[q] = e.target.value;
+          apply(sec, e.target.value, true);
+          save(); renderMeta();
+        }
+      });
+      var reason = sec.querySelector(".ppq-reason");
+      reason.addEventListener("toggle", function () {
+        if (reason.open && !state[q]) {
+          state[q] = "reveal";
+          sec.classList.add("is-done");
+          tagAnswer(sec);
+          save(); renderMeta();
+        }
+      });
+      var v = state[q];
+      if (v === "reveal" || (v && FB[q] && FB[q][v])) { apply(sec, v, false); }
+      else if (v) { delete state[q]; }
+    });
+    renderMeta();
+  })();
+</script>
+</body>
+</html>

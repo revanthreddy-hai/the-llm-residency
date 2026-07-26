@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenizer Playground · The LLM Residency</title>
+<meta name="description" content="An interactive GPT-2 tokenizer: type any text and see the exact token ids a language model receives.">
+<meta property="og:title" content="Tokenizer Playground · The LLM Residency">
+<meta property="og:description" content="An interactive GPT-2 tokenizer: type any text and see the exact token ids a language model receives.">
+<meta property="og:type" content="website">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='%23f9f9f7'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/atom+xml" title="The LLM Residency" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=4">
+<style>
+  /* Playground-only styles. Everything else comes from styles.css. */
+  .tok-wrap { max-width: var(--w-prose); margin-inline: auto; padding: 34px 0 8px; }
+  .vh {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  #tok-input {
+    width: 100%; box-sizing: border-box; min-height: 96px; resize: vertical;
+    font-family: var(--mono); font-size: 0.95rem; line-height: 1.6;
+    color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line-2); border-radius: 10px; padding: 12px 14px;
+  }
+  #tok-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tok-controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px;
+    margin: 14px 0 20px;
+  }
+  .tok-sample {
+    font-family: var(--sans); font-size: 0.8rem; font-weight: 500;
+    color: var(--ink-2); background: var(--surface);
+    border: 1px solid var(--line-2); border-radius: 999px;
+    padding: 5px 14px; cursor: pointer;
+  }
+  .tok-sample:hover { color: var(--accent); border-color: var(--accent-line); }
+  .tok-sample:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tok-ids-label {
+    font-family: var(--sans); font-size: 0.8rem; color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-left: auto; cursor: pointer;
+  }
+  .tok-ids-label input { accent-color: var(--accent); }
+  .tok-stats {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2);
+    margin: 0 0 12px;
+  }
+  .tok-strip { display: flex; flex-wrap: wrap; gap: 5px; min-height: 34px; align-items: flex-start; }
+  .tok-chip {
+    display: inline-block; font-family: var(--mono); font-size: 0.83rem;
+    line-height: 1.45; padding: 3px 7px; border-radius: 6px; white-space: pre;
+  }
+  .tok-strip .tok-chip:nth-child(odd) { background: var(--accent-wash); }
+  .tok-strip .tok-chip:nth-child(odd) { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .tok-strip .tok-chip:nth-child(even) { background: var(--line); }
+  .tok-chip.sp { padding-left: 11px; }
+  .tok-dot { color: var(--ink-3); }
+  .tok-id { display: none; font-size: 0.64rem; color: var(--ink-2); margin-top: 1px; }
+  .tok-strip.show-ids .tok-id { display: block; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container">
+    <a class="wordmark" href="index.html">The LLM Residency</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="resources.html" class="nav-hide-m">Resources</a>
+      <a href="week01.html" class="nav-hide-m">Latest</a>
+      <a href="feed.xml" class="nav-hide-m">RSS</a>
+      <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <header class="article-header">
+      <p class="kicker">Interactive · ships with Week 1</p>
+      <h1>Tokenizer Playground</h1>
+      <p class="dek">Type anything and watch GPT-2&rsquo;s tokenizer split it into the ids a model receives.
+      Vocabulary: 50,257 entries, loaded into this page.</p>
+      <div class="article-meta">
+        <span>GPT-2 byte-level BPE</span>
+        <span>Runs in your browser</span>
+      </div>
+    </header>
+
+    <div class="tok-wrap">
+
+      <label class="vh" for="tok-input">Text to tokenize</label>
+      <textarea id="tok-input" rows="3" spellcheck="false" autocomplete="off">The investment bank sat on the river bank.</textarea>
+
+      <div class="tok-controls">
+        <button type="button" class="tok-sample" data-sample="english">English</button>
+        <button type="button" class="tok-sample" data-sample="python">Python</button>
+        <button type="button" class="tok-sample" data-sample="numbers">Numbers and symbols</button>
+        <label class="tok-ids-label"><input type="checkbox" id="tok-show-ids"> show token ids</label>
+      </div>
+
+      <p class="tok-stats" id="tok-stats" aria-live="polite">Loading the vocabulary&hellip;</p>
+
+      <div class="tok-strip" id="tok-strip" aria-hidden="true"></div>
+      <p class="vh" id="tok-alt"></p>
+
+      <noscript><p>This tool needs JavaScript. The essay explains the same ideas in prose.</p></noscript>
+
+    </div>
+
+    <div class="prose">
+      <h2>What to notice</h2>
+      <p>Spaces belong to tokens. The space before a word is stored inside the word&rsquo;s token, shown here as a
+      middle dot at the start of a chip, so &ldquo;bank&rdquo; at the start of a sentence and &ldquo; bank&rdquo;
+      after a space get different ids. Common English words are usually one token each; rarer words split into
+      smaller pieces the vocabulary has seen more often. Numbers split in ways that follow frequency in the
+      training data rather than place value. And in the sample sentence, both banks map to the same id: nothing
+      in the token itself tells the model which meaning is intended.</p>
+      <p>Where the ids go next, and how the two banks eventually get told apart, is the subject of
+      <a href="week01.html">Week 1: Tokens, Context, and Embeddings</a>.</p>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="fm">The LLM Residency</span>
+    <nav aria-label="Footer">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="resources.html">Resources</a>
+      <a href="index.html#method">How it’s checked</a>
+      <a href="index.html#subscribe">Subscribe</a>
+      <a href="feed.xml">RSS</a>
+    </nav>
+    <p class="fine">Written from inside a real industrial LLM training residency, on open models and public sources.
+    This journal is personal. The notes, opinions, and mistakes are mine, not my employer’s.
+    © 2026 The LLM Residency.</p>
+  </div>
+</footer>
+
+<script src="assets/gpt2-bpe.js"></script>
+<script>
+  (function () {
+    var input = document.getElementById("tok-input");
+    var strip = document.getElementById("tok-strip");
+    var stats = document.getElementById("tok-stats");
+    var alt = document.getElementById("tok-alt");
+    var toggle = document.getElementById("tok-show-ids");
+
+    var samples = {
+      english: "The tokenizer never sees words. It sees ids, and everything the model knows about language it learned from patterns in those ids.",
+      python: "def add(a, b):\n    return a + b",
+      numbers: "3.14159 costs $1,234.56 and 100% of 2048 is 2048"
+    };
+
+    function chipFor(tok) {
+      var chip = document.createElement("span");
+      chip.className = "tok-chip";
+      var lead = tok.token.match(/^ +/);
+      var n = lead ? lead[0].length : 0;
+      if (n > 0) {
+        chip.classList.add("sp");
+        var dot = document.createElement("span");
+        dot.className = "tok-dot";
+        dot.textContent = new Array(n + 1).join("·");
+        chip.appendChild(dot);
+      }
+      var rest = tok.token.slice(n).replace(/\n/g, "↵");
+      if (rest) {
+        var text = document.createElement("span");
+        text.textContent = rest;
+        chip.appendChild(text);
+      }
+      var id = document.createElement("span");
+      id.className = "tok-id";
+      id.textContent = String(tok.id);
+      chip.appendChild(id);
+      return chip;
+    }
+
+    function render() {
+      var text = input.value;
+      var toks = window.gpt2Tokenize(text);
+      strip.textContent = "";
+      for (var i = 0; i < toks.length; i++) strip.appendChild(chipFor(toks[i]));
+      var chars = Array.from(text).length;
+      var per = toks.length ? (chars / toks.length).toFixed(1) : "0.0";
+      stats.textContent = toks.length + (toks.length === 1 ? " token · " : " tokens · ")
+        + chars + (chars === 1 ? " character · " : " characters · ")
+        + per + " characters per token";
+      alt.textContent = "The text splits into " + toks.length
+        + (toks.length === 1 ? " token." : " tokens.");
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll(".tok-sample"), function (btn) {
+      btn.addEventListener("click", function () {
+        input.value = samples[btn.getAttribute("data-sample")];
+        if (window.gpt2Tokenize) render();
+      });
+    });
+
+    toggle.addEventListener("change", function () {
+      strip.classList.toggle("show-ids", toggle.checked);
+    });
+
+    if (window.gpt2Ready) {
+      window.gpt2Ready.then(function () {
+        input.addEventListener("input", render);
+        render();
+      }).catch(function () {
+        stats.textContent = "The vocabulary failed to load. Reload the page to try again.";
+      });
+    }
+  })();
+</script>
+</body>
+</html>

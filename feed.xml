@@ -6,8 +6,16 @@
   <link href="https://revanthreddy-hai.github.io/the-llm-residency/"/>
   <link rel="self" href="https://revanthreddy-hai.github.io/the-llm-residency/feed.xml"/>
   <id>https://revanthreddy-hai.github.io/the-llm-residency/</id>
-  <updated>2026-07-23T00:00:00Z</updated>
+  <updated>2026-07-26T00:00:00Z</updated>
   <author><name>The LLM Residency</name></author>
+  <entry>
+    <title>Tokens, Context, and Embeddings</title>
+    <link href="https://revanthreddy-hai.github.io/the-llm-residency/week01.html"/>
+    <id>https://revanthreddy-hai.github.io/the-llm-residency/week01.html</id>
+    <published>2026-07-26T00:00:00Z</published>
+    <updated>2026-07-26T00:00:00Z</updated>
+    <summary>Week 1. How text becomes token ids and vectors, measured on four sentences: one word, two senses, three representations. Ships with the Tokenizer Playground, GPT-2's tokenizer running in the browser.</summary>
+  </entry>
   <entry>
     <title>The Map of the Territory</title>
     <link href="https://revanthreddy-hai.github.io/the-llm-residency/week00a.html"/>
