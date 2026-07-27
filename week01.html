@@ -6,7 +6,7 @@
 <title>Tokens, Context, and Embeddings · The LLM Residency, Week 1</title>
 <meta name="description" content="How text becomes token ids and vectors, measured on four sentences: one word, two senses, three representations.">
 <meta property="og:title" content="Tokens, Context, and Embeddings · The LLM Residency">
-<meta property="og:description" content="The same word enters the model as the same number and the same vector, whichever sense it carries. Where meaning enters, measured.">
+<meta property="og:description" content="The same word enters the model as the same number and the same lookup row, whichever sense it carries. Where meaning enters, measured.">
 <meta property="og:type" content="article">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
@@ -56,7 +56,7 @@
     <header class="article-header">
       <p class="kicker">Week 1 · Working with models</p>
       <h1>Tokens, Context, and Embeddings</h1>
-      <p class="dek">The word “bank” enters GPT-2 as the same number and the same vector whether it sits
+      <p class="dek">The word “bank” enters GPT-2 as the same number and the same lookup row whether it sits
       by a river or approves a merger. This week: how text becomes ids, where meaning enters, and what
       that looks like measured on four sentences.</p>
       <div class="article-meta">
@@ -462,7 +462,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
 
       <p>The notebook runs the full experiment on a free CPU: both models, all twelve layers, the
       next-token check, the sentence embeddings, and the retrieval queries, with self-checks that assert
-      the token ids and the sense separation before showing results. First run downloads about
+      the token ids and the sense separation at each step. First run downloads about
       1&nbsp;GB of model weights.</p>
 
       <p class="lab-cta">
