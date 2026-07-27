@@ -755,7 +755,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
   justify-content: space-between;
 }
 .site-footer .fm { font-family: var(--serif); font-style: italic; font-size: 1.05rem; }
-.site-footer nav { display: flex; gap: 22px; }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: 10px 22px; }
 .site-footer a { color: var(--ink-2); font-size: 0.86rem; }
 .site-footer a:hover { color: var(--accent); }
 .site-footer .fine { width: 100%; margin: 4px 0 0; font-size: 0.78rem; color: var(--ink-2); }
@@ -1278,3 +1278,9 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Sticky header must not cover anchor targets */
+[id] { scroll-margin-top: 80px; }
+
+/* Horizontal containment for wide tables on small screens */
+.table-scroll { overflow-x: auto; }

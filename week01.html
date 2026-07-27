@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 <style>
   /* Week 1 figures: pipeline diagram + layer chart */
   .pipe-scroll { overflow-x: auto; }
@@ -184,6 +184,8 @@
             <line x1="356" y1="202" x2="468" y2="202"/>
             <line x1="356" y1="227" x2="468" y2="227"/>
           </g>
+          <text x="412" y="120" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--ink-3)">⋯</text>
+          <text x="412" y="245" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--ink-3)">⋯</text>
           <rect x="357" y="178" width="110" height="23" fill="var(--accent)" opacity="0.18"/>
           <text x="412" y="194" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--accent)">row 3331</text>
           <text x="412" y="44" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--ink-2)">50,257 × 768</text>
@@ -191,14 +193,22 @@
 
           <line x1="476" y1="152" x2="498" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
 
-          <!-- stage 5: transformer layers -->
-          <rect x="506" y="72" width="128" height="38" rx="9" fill="none" stroke="var(--line-2)"/>
-          <text x="570" y="96" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">layer 1</text>
-          <text x="570" y="136" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--ink-2)">⋮</text>
-          <rect x="506" y="154" width="128" height="38" rx="9" fill="none" stroke="var(--line-2)"/>
-          <text x="570" y="178" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">layer 12</text>
-          <path d="M 520 214 C 542 234 598 234 620 214" fill="none" stroke="var(--accent)" stroke-width="1.3" opacity="0.75" marker-end="url(#pipe-arr)"/>
-          <path d="M 620 64 C 598 44 542 44 520 64" fill="none" stroke="var(--accent)" stroke-width="1.3" opacity="0.75" marker-end="url(#pipe-arr)"/>
+          <!-- stage 5: transformer layers (attention mixes positions WITHIN each layer) -->
+          <rect x="506" y="64" width="128" height="48" rx="9" fill="none" stroke="var(--line-2)"/>
+          <text x="570" y="82" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">layer 1</text>
+          <g fill="var(--accent)">
+            <circle cx="546" cy="102" r="2"/><circle cx="570" cy="102" r="2"/><circle cx="594" cy="102" r="2"/>
+          </g>
+          <path d="M 546 99 C 552 88 564 88 570 99" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
+          <path d="M 594 99 C 588 88 576 88 570 99" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
+          <text x="570" y="134" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--ink-2)">⋮</text>
+          <rect x="506" y="148" width="128" height="48" rx="9" fill="none" stroke="var(--line-2)"/>
+          <text x="570" y="166" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">layer 12</text>
+          <g fill="var(--accent)">
+            <circle cx="546" cy="186" r="2"/><circle cx="570" cy="186" r="2"/><circle cx="594" cy="186" r="2"/>
+          </g>
+          <path d="M 546 183 C 552 172 564 172 570 183" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
+          <path d="M 594 183 C 588 172 576 172 570 183" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
           <text x="570" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">context mixed in</text>
 
           <line x1="642" y1="152" x2="664" y2="152" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#pipe-arr)"/>
@@ -208,11 +218,13 @@
           <text x="717" y="196" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">one vector</text>
           <text x="717" y="213" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">per text</text>
           <text x="717" y="276" text-anchor="middle" font-family="var(--sans)" font-size="13.5" fill="var(--ink-2)">pooling</text>
+          <text x="717" y="292" text-anchor="middle" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">(embedding models)</text>
         </svg>
         </div>
         <p class="ntp-note">The ids on the arrows are measured: GPT-2 tokenizes “The investment bank” to
-        464, 4896, 3331. The curved arrows on the layer stack are what the middle of this essay
-        measures: positions exchanging information.</p>
+        464, 4896, 3331. The small arcs inside each layer are what the middle of this essay measures:
+        positions exchanging information within a layer, twelve layers in a row. Both models also add a
+        position signal to each vector before layer 1; it is not drawn.</p>
       </figure>
 
       <h2 id="tokens">How text becomes ids</h2>
@@ -300,8 +312,8 @@
       </section>
 
       <p>Here is the centerpiece measurement. For each model I extracted the hidden vector at the position
-      of “bank” in each of the four sentences and compared all six pairs. BERT behaves exactly as the
-      textbooks promise. At its input layer the vectors are near-identical across sentences, because they
+      of “bank” in each of the four sentences and compared all six pairs. In this four-sentence
+      probe, BERT behaves the way the textbooks describe. At its input layer the vectors are near-identical across sentences, because they
       are the same table row. By the final layer, the two river-banks agree with each other at 0.791, the
       two money-banks at 0.692, and every cross-sense pair has fallen to between 0.373 and 0.541. The model
       was never told these sentences involve two senses. The separation emerged from mixing in context.</p>
@@ -358,13 +370,13 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
           <button type="button" class="lyr-btn" data-model="gpt2" aria-pressed="false">gpt2</button>
         </div>
         <div id="lyr-chart"></div>
-        <p class="lyr-read" id="lyr-read"></p>
+        <p class="lyr-read" id="lyr-read" aria-live="polite"></p>
         <p class="ntp-note">BERT pulls the cross-sense pairs away from the same-sense pairs almost
         immediately and keeps them apart. Flip to GPT-2: the two means sag together, then both snap back
-        toward 1.0 at the final layer, which is the narrow cone closing. Hover, tap, or use arrow keys to
-        read any layer.</p>
+        toward 1.0 at the final layer, consistent with the upper-layer anisotropy described below. Hover,
+        tap, or use arrow keys to read any layer.</p>
         <noscript><p class="ntp-sub">This chart needs JavaScript. The numbers for layers 0, 6, and 12 are
-        in the prose above, and the notebook prints the full curves.</p></noscript>
+        in the prose above, and the notebook prints the mean curves for every layer.</p></noscript>
       </figure>
 
       <p>GPT-2 did not produce that picture. I expected the same separation, weaker perhaps, and instead
@@ -379,8 +391,8 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
       concluding anything about the representation, I asked GPT-2 the question it was trained to answer:
       which token comes next? After “The investment bank”, four of its five strongest guesses are “’s”,
       “has”, “said”, and “is”: a company about to do something. After “the muddy bank”, the two strongest
-      are “of” and “and”: scenery in the middle of a description. The sense information survived all
-      twelve layers. My cosine probe could not see it.</p>
+      are “of” and “and”: scenery in the middle of a description. For these prefixes, the sense information
+      survived all twelve layers. My cosine probe could not see it.</p>
 
       <p>What I am keeping from this is the difference between a representation and a probe. The context
       was in there; the first tool I pointed at it was too blunt. I suspect this will not be the last time
@@ -395,9 +407,10 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
       tell, the single biggest source of confusion in tutorials.</p>
 
       <p>I ran the four sentences through <code>all-MiniLM-L6-v2</code>, a small sentence-embedding model
-      that maps any text to 384 numbers. Then I embedded two search queries and ranked the sentences by
+      that maps a sentence or short paragraph to 384 numbers (it truncates longer inputs). Then I embedded two search queries and ranked the sentences by
       cosine similarity, which is retrieval in miniature:</p>
 
+      <div class="table-scroll">
       <table>
         <thead>
           <tr><th scope="col">Query</th><th scope="col">Ranking (cosine similarity)</th></tr>
@@ -407,6 +420,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
           <tr><td>“the edge of a river”</td><td class="wkcol">A 0.513 · B 0.361 · D 0.143 · C 0.094</td></tr>
         </tbody>
       </table>
+      </div>
 
       <p>“Financial institution” shares no word with either finance sentence, yet ranks both of them far
       above both river sentences. The river query has an easier job (sentence A contains “river”), but the
@@ -529,7 +543,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
     if (!host) return;
     var NS = "http://www.w3.org/2000/svg";
     var W = 640, H = 350, ML = 42, MR = 12, MT = 16, MB = 30;
-    var model = "bert", curLayer = 12, guide = null, drawn = false;
+    var model = "bert", curLayer = 12, guide = null, drawn = false, interacted = false;
 
     function X(L) { return ML + (L / 12) * (W - ML - MR); }
     function Y(v) { return MT + (1 - (v - 0.3) / 0.7) * (H - MT - MB); }
@@ -566,7 +580,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
       host.textContent = "";
       var svg = el("svg", {viewBox: "0 0 " + W + " " + H, "class": "lyr-svg", tabindex: "0", role: "img",
         "aria-label": "Line chart of cosine similarity by layer for " + D[model].label +
-        ". Use left and right arrow keys to read values per layer."}, host);
+        ". Use left and right arrow keys to read the same-sense and cross-sense means at each layer."}, host);
       var g;
       for (var v = 3; v <= 10; v++) {
         var yy = Y(v / 10);
@@ -584,7 +598,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
       for (var p in m.pairs) {
         el("path", {d: pathFor(m.pairs[p]), fill: "none",
           stroke: SAME[p] ? "var(--accent)" : "var(--ink-2)",
-          opacity: SAME[p] ? 0.30 : 0.20, "stroke-width": 1.1}, svg);
+          opacity: SAME[p] ? 0.45 : 0.32, "stroke-width": 1.2}, svg);
       }
       var meanSame = el("path", {d: pathFor(m.same), fill: "none", stroke: "var(--accent)",
         "stroke-width": 2.6, "stroke-linecap": "round"}, svg);
@@ -592,13 +606,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
         "stroke-width": 2.2, "stroke-linecap": "round", "stroke-dasharray": "6 5"}, svg);
       guide = el("line", {x1: X(curLayer), y1: MT, x2: X(curLayer), y2: H - MB,
         stroke: "var(--line-2)", "stroke-width": 1, opacity: 0}, svg);
-      var lg = el("g", {"font-family": "var(--sans)", "font-size": 13.5}, svg);
-      el("rect", {x: ML + 6, y: MT + 2, width: 232, height: 46, rx: 6, fill: "var(--surface)", opacity: 0.88}, lg);
-      el("line", {x1: ML + 14, y1: MT + 12, x2: ML + 44, y2: MT + 12, stroke: "var(--accent)", "stroke-width": 2.6}, lg);
-      el("text", {x: ML + 50, y: MT + 17, fill: "var(--ink)"}, lg).textContent = "same sense (A–B, C–D)";
-      el("line", {x1: ML + 14, y1: MT + 32, x2: ML + 44, y2: MT + 32, stroke: "var(--ink-2)", "stroke-width": 2.2, "stroke-dasharray": "6 5"}, lg);
-      el("text", {x: ML + 50, y: MT + 37, fill: "var(--ink)"}, lg).textContent = "cross sense";
-      if (withAnim) {
+      if (withAnim && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
         var dash = meanCross.getAttribute("stroke-dasharray");
         animate(meanSame);
         meanCross.setAttribute("stroke-dasharray", "");
@@ -616,8 +624,9 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
         return Math.max(0, Math.min(12, L));
       }
       svg.addEventListener("pointermove", function (ev) { setRead(layerFromEvent(ev)); });
-      svg.addEventListener("pointerdown", function (ev) { setRead(layerFromEvent(ev)); });
+      svg.addEventListener("pointerdown", function (ev) { interacted = true; setRead(layerFromEvent(ev)); });
       svg.addEventListener("keydown", function (ev) {
+        interacted = true;
         if (ev.key === "ArrowLeft") { setRead(Math.max(0, curLayer - 1)); ev.preventDefault(); }
         if (ev.key === "ArrowRight") { setRead(Math.min(12, curLayer + 1)); ev.preventDefault(); }
       });
@@ -626,6 +635,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
     var btns = document.querySelectorAll(".lyr-btn");
     Array.prototype.forEach.call(btns, function (b) {
       b.addEventListener("click", function () {
+        interacted = true;
         if (b.getAttribute("aria-pressed") === "true") return;
         Array.prototype.forEach.call(btns, function (x) {
           x.setAttribute("aria-pressed", x === b ? "true" : "false");
@@ -637,7 +647,7 @@ for a, b in [<span class="s">"AB"</span>, <span class="s">"CD"</span>, <span cla
     render(false);
     if ("IntersectionObserver" in window) {
       var io = new IntersectionObserver(function (entries) {
-        if (drawn) return;
+        if (drawn || interacted) { io.disconnect(); return; }
         if (entries.some(function (e) { return e.isIntersecting; })) {
           drawn = true; io.disconnect(); render(true);
         }
