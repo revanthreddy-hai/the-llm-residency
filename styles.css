@@ -1284,3 +1284,10 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Horizontal containment for wide tables on small screens */
 .table-scroll { overflow-x: auto; }
+
+/* ---------- diff page ---------- */
+.diffstat { font-variant-numeric: tabular-nums; }
+.diff-phase { margin-top: 34px; }
+.diff-phase .res-group { margin-top: 0; }
+.diff-list .meta .wkchip { margin-left: 2px; }
+.diff-method { margin-top: 48px; padding-top: 8px; border-top: 1px solid var(--line); }
