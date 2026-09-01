@@ -6,8 +6,16 @@
   <link href="https://revanthreddy-hai.github.io/the-llm-residency/"/>
   <link rel="self" href="https://revanthreddy-hai.github.io/the-llm-residency/feed.xml"/>
   <id>https://revanthreddy-hai.github.io/the-llm-residency/</id>
-  <updated>2026-07-26T00:00:00Z</updated>
+  <updated>2026-08-31T00:00:00Z</updated>
   <author><name>The LLM Residency</name></author>
+  <entry>
+    <title>Looking Inside a Transformer</title>
+    <link href="https://revanthreddy-hai.github.io/the-llm-residency/week02.html"/>
+    <id>https://revanthreddy-hai.github.io/the-llm-residency/week02.html</id>
+    <published>2026-08-31T00:00:00Z</published>
+    <updated>2026-08-31T00:00:00Z</updated>
+    <summary>Week 2. Attention, feed-forward blocks, and the residual stream, measured in place: one sentence GPT-2 can only finish by moving information between positions, and the layer where the answer arrives.</summary>
+  </entry>
   <entry>
     <title>Tokens, Context, and Embeddings</title>
     <link href="https://revanthreddy-hai.github.io/the-llm-residency/week01.html"/>

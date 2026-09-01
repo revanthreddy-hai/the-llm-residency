@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Looking Inside a Transformer · The LLM Residency, Week 2</title>
+<meta name="description" content="Attention, feed-forward blocks, and the residual stream, measured in place: one sentence GPT-2 can only finish by moving information between positions.">
+<meta property="og:title" content="Looking Inside a Transformer · The LLM Residency">
+<meta property="og:description" content="GPT-2 picks “Mary” over “John” at better than seven-to-one odds, and the answer appears at layer 11 of 12. What the twelve layers are made of, measured.">
+<meta property="og:type" content="article">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='%23f9f9f7'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/atom+xml" title="The LLM Residency" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6">
+<style>
+  /* Week 2 figures: block diagram + attention heatmap */
+  .blk-scroll { overflow-x: auto; }
+  .blk-scroll svg { min-width: 620px; display: block; width: 100%; height: auto; }
+  .lyr-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 2px 0 10px; }
+  .lyr-btn {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line-2); border-radius: 999px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  .lyr-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .lyr-btn:focus-visible, .hm-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hm-read { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2); margin: 8px 0 0; min-height: 1.4em; }
+  #hm-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  /* Highlighted phrases: one per act of the argument, each sweeps once on first view. */
+  :root { --hl: rgba(255, 224, 70, 0.42); }
+  @media (prefers-color-scheme: dark) {
+    :root { --hl: rgba(255, 214, 90, 0.16); }
+  }
+  mark.hl {
+    background: linear-gradient(var(--hl), var(--hl)) no-repeat left center;
+    background-size: 100% 84%;
+    color: inherit;
+    padding: 0 3px;
+    margin: 0 -3px;
+    border-radius: 3px;
+  }
+  mark.hl.hl-anim { background-size: 0% 84%; }
+  mark.hl.hl-anim.hl-on {
+    background-size: 100% 84%;
+    transition: background-size 750ms cubic-bezier(0.3, 0, 0.3, 1) 150ms;
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container">
+    <a class="wordmark" href="index.html">The LLM Residency</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="diff.html" class="nav-hide-m">The Diff</a>
+      <a href="resources.html" class="nav-hide-m">Resources</a>
+      <a href="feed.xml" class="nav-hide-m">RSS</a>
+      <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <header class="article-header">
+      <p class="kicker">Week 2 · Working with models</p>
+      <h1>Looking Inside a Transformer</h1>
+      <p class="dek">Ask GPT-2 to finish “When Mary and John went to the store, John gave a drink to”
+      and it picks “Mary” over “John” at better than seven-to-one odds. This week: the machinery between the
+      lookup table and that guess (attention, feed-forward blocks, and the residual stream),
+      measured in place.</p>
+      <div class="article-meta">
+        <span>≈ 11 min read</span>
+        <span>Last verified 2026-08-31</span>
+        <span>Working notes</span>
+        <span id="ppq-meta" hidden></span>
+      </div>
+    </header>
+
+    <article class="prose">
+
+      <aside class="callout" aria-label="Skip test">
+        <span class="callout-label">Skip test</span>
+        <p>Answer these three and you can jump straight to <a href="#lab">the lab</a>:</p>
+        <ol>
+          <li>A GPT-2 block holds an attention layer and an MLP. Which of the two holds two-thirds of
+          the block’s parameters?</li>
+          <li>In attention, queries, keys, and values each play one role. Which pair sets the weights,
+          and which one carries the information?</li>
+          <li>Read with the logit lens, GPT-2’s running guess for the sentence above is still generic at
+          layer 10 (“them”), and the right name is top-ranked only at layer 11 of 12. What does
+          that suggest about how the answer is computed?</li>
+        </ol>
+        <p class="fine">#3 is the centerpiece measurement. I expected the answer to build gradually,
+        and instead got a cliff.</p>
+      </aside>
+
+      <p>Week 1 ended on a fact I measured but did not explain: the vector for “bank” leaves the
+      lookup table identical in every sentence and arrives at the top of the network carrying its
+      context. Whatever did the carrying lives in twelve identical blocks stacked between the two
+      measurements. This week I opened one.</p>
+
+      <p>The reading was the chapter this essay borrows its title from, and it describes the machinery
+      well. But a diagram cannot tell you <em>where in the stack</em> a particular answer takes shape,
+      and that turned out to be a question small enough to answer with code.</p>
+
+      <h2 id="sentence">A sentence only context can finish</h2>
+
+      <p>The test sentence comes from the interpretability literature, where it has a job title
+      (indirect-object identification):</p>
+
+      <p><em>“When Mary and John went to the store, John gave a drink to&nbsp;___”</em></p>
+
+      <p>Any reader completes it with “Mary”: John was just mentioned as the giver, so the receiver is
+      the other name. No table of word frequencies gets you there, because both names are equally
+      common; the only clue is <em>which name appeared twice in this particular sentence</em>. That
+      makes it a clean probe for context-moving machinery. GPT-2, measured:</p>
+
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Prompt ends “…John gave a drink to”</th><th scope="col">Prompt ends “…Mary gave a drink to”</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="wkcol">Mary 0.446 · them 0.212 · the 0.071 · John 0.060</td>
+              <td class="wkcol">John 0.302 · them 0.239 · the 0.129</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <p>Swap which name repeats and the answer swaps with it. The model is not completing a pattern
+      about Mary; it is tracking who has been mentioned once. Everything below is about how a stack of
+      matrix multiplications does that, and every number comes from executed code; the
+      <a href="#lab">notebook</a> reproduces all of it.</p>
+
+      <section class="ppq" data-q="1" data-answer="mlp">
+        <p class="ppq-kicker">Pause and predict · 1 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Each of GPT-2’s twelve blocks contains an attention layer and a feed-forward MLP.
+          Where do most of a block’s learned parameters sit?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="attn"><span>In attention: it does the famous work, so it should hold the famous weights</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="mlp"><span>In the MLP: roughly two parameters there for every one in attention</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="even"><span>Split about evenly between the two</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>Counted from the loaded weights: attention holds 2,362,368 parameters per block, the MLP
+          4,722,432 — the MLP is 66.6% of the block. The MLP widens each 768-number vector to 3,072,
+          applies a nonlinearity, and projects back
+          down, and those two rectangular matrices are the largest single share of the model’s
+          parameters: 45.5% across the twelve blocks. Attention decides where information moves; most of the capacity sits in
+          what happens to it afterwards.</p>
+        </details>
+      </section>
+
+      <figure class="ntp" aria-label="One transformer block, drawn as a diagram">
+        <figcaption class="ntp-head">
+          <span class="callout-label">One block, weighed</span>
+          <span class="ntp-sub">GPT-2 small: the residual stream runs top to bottom, and each block
+          taps it twice — once for attention, once for the MLP — adding its result back both times.
+          Parameter counts are measured from the loaded model.</span>
+        </figcaption>
+        <div class="blk-scroll">
+        <svg viewBox="0 0 760 400" role="img" aria-label="Diagram of one GPT-2 block: a vertical residual stream of 768 numbers per position; a layernorm and attention layer read it and add their result back; a layernorm and MLP read it and add their result back; the pattern repeats twelve times.">
+          <defs>
+            <marker id="blk-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- residual stream -->
+          <text x="130" y="28" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink-2)">the residual stream</text>
+          <text x="130" y="46" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--ink-2)">768 numbers per position</text>
+          <line x1="130" y1="56" x2="130" y2="374" stroke="var(--accent)" stroke-width="2.4" marker-end="url(#blk-arr)"/>
+
+          <!-- block boundary -->
+          <rect x="70" y="76" width="640" height="272" rx="12" fill="none" stroke="var(--line-2)" stroke-dasharray="7 6"/>
+          <text x="694" y="98" text-anchor="end" font-family="var(--mono)" font-size="12" fill="var(--ink-2)">one block · 7,087,872 params · ×12</text>
+
+          <!-- attention tap -->
+          <line x1="130" y1="122" x2="252" y2="122" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#blk-arr)"/>
+          <text x="192" y="114" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--ink-2)">layernorm</text>
+          <rect x="260" y="94" width="316" height="56" rx="9" fill="var(--accent-wash)" stroke="var(--accent-line)"/>
+          <text x="418" y="117" text-anchor="middle" font-family="var(--sans)" font-size="14.5" fill="var(--ink)">attention · 12 heads × 64 dims</text>
+          <text x="418" y="138" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--accent)">2,362,368 params</text>
+          <text x="591" y="117" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">the only place</text>
+          <text x="591" y="133" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">positions exchange</text>
+          <text x="591" y="149" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">information</text>
+          <path d="M 260 150 C 200 150 175 162 136 174" fill="none" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#blk-arr)"/>
+          <circle cx="130" cy="180" r="9" fill="var(--paper)" stroke="var(--accent)" stroke-width="1.6"/>
+          <text x="130" y="185" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--accent)">+</text>
+
+          <!-- MLP tap -->
+          <line x1="130" y1="234" x2="252" y2="234" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#blk-arr)"/>
+          <text x="192" y="226" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--ink-2)">layernorm</text>
+          <rect x="260" y="206" width="316" height="56" rx="9" fill="none" stroke="var(--line-2)"/>
+          <text x="418" y="229" text-anchor="middle" font-family="var(--sans)" font-size="14.5" fill="var(--ink)">MLP · 768 → 3,072 → 768</text>
+          <text x="418" y="250" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--ink-2)">4,722,432 params · 66.6% of the block</text>
+          <text x="591" y="229" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">works on each</text>
+          <text x="591" y="245" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">position alone,</text>
+          <text x="591" y="261" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">no mixing</text>
+          <path d="M 260 262 C 200 262 175 274 136 286" fill="none" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#blk-arr)"/>
+          <circle cx="130" cy="292" r="9" fill="var(--paper)" stroke="var(--accent)" stroke-width="1.6"/>
+          <text x="130" y="297" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--accent)">+</text>
+
+          <text x="130" y="394" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink-2)">to the next block</text>
+        </svg>
+        </div>
+        <p class="ntp-note">Both taps <em>add</em> their result back to the stream rather than
+        replacing it, which is why the stream reads as a running draft: every block inherits
+        everything the earlier blocks wrote. The whole model is this picture twelve times, between an
+        embedding table (38,597,376 params), a position table (786,432), and one final layernorm: 124,439,808 parameters in total.</p>
+      </figure>
+
+      <h2 id="stream">The residual stream is a running draft</h2>
+
+      <p>The number to hold onto from the diagram is 768. Each position in the input carries a vector
+      of 768 numbers, and that vector is the only thing a block hands to the next one. Attention reads
+      it, computes something, and adds the result back in. The MLP does the same. Nothing is ever
+      overwritten; <mark class="hl">each block reads the same stream, adds its edit, and passes it
+      on</mark>. By the last block, the vector above “to” has
+      been edited twenty-four times (twelve attention edits, twelve MLP edits), and the final guess
+      is made from that one vector alone.</p>
+
+      <p>The two kinds of edit split the labor unevenly and in opposite directions. Attention is the
+      only mechanism in the entire network where information crosses between positions: it holds
+      2,362,368 of each block’s parameters. The MLP, at 4,722,432 parameters two-thirds of the block, never looks sideways at all; it transforms each position’s vector alone. Whatever “knowing that
+      John already gave the drink” means, the looking-up happens in attention and most of the capacity
+      for making something of it sits in the MLPs.</p>
+
+      <h2 id="attention">Q asks, K matches, V delivers</h2>
+
+      <p>Attention gets described with an intimidating vocabulary (queries, keys, values) for what is
+      mechanically a soft lookup. Each position publishes three vectors, computed from its slice of the
+      stream: a <strong>query</strong> (what am I looking for?), a <strong>key</strong> (what do I
+      contain?), and a <strong>value</strong> (what will I hand over if selected?). A position scores its query against its own key and every earlier position’s key (later positions are masked out), the scores become weights that sum to one, and
+      the weighted mix of <em>values</em> is what flows back into the stream. Queries and keys set the
+      weights; values carry the information. GPT-2 runs twelve of these lookups per block in
+      parallel (the heads), each with its own 64-dimensional slice of the 768.</p>
+
+      <p>What the heads actually do with that freedom is more habitual than the mechanism suggests. I
+      took the attention weights from the final position (the “to” that must choose a name) for all
+      144 heads and looked at where each one spends its budget:</p>
+
+      <ul>
+        <li><strong>Some heads are wired to the recent past.</strong> Layer 5, head 12 puts 0.9999 of
+        its weight on the immediately previous token (“drink”), and 14 of the 144 heads put their
+        largest weight on the previous position. A previous-token lookup is useful everywhere, so the
+        network keeps dedicated machinery for it.</li>
+        <li><strong>Most heads spend most of their budget doing nothing.</strong> 66 of 144 heads put
+        more
+        than half their weight on the first token of the sentence (“When”, which carries no answer),
+        and the average head sends 0.443 of its weight there. Layer 6, head 2 is the extreme
+        at 0.9997. This is the “attention sink”: weights must sum to one, so a head with nothing to say
+        parks its budget on a default position. A head that looks busy in a heatmap may be idling.</li>
+        <li><strong>A few heads single out the answer.</strong> At the final position, the heads with
+        the most weight on “Mary” are layer 11 head 8 (0.582), layer 12 head 11 (0.529), and layer 10
+        head 7 (0.492). Layer 11 head 8 gives John’s two mentions only 0.145 and 0.088: it has found
+        the right name, not just <em>a</em> name. What a head <em>does</em> with what it finds is
+        another matter, and it is the punchline below.</li>
+      </ul>
+
+      <p>Sorting attention weights is the crude version of a known result, and the comparison taught
+      me more than agreement would have. Wang et al. mapped this exact task in this exact model in
+      2022, with causal interventions rather than sorting. Two of my heads match their circuit: layer
+      10 head 7 and layer 10 head 10 (0.362, fifth on my list) are “name mover heads”, the heads that
+      copy the answer into the final position. But my two <em>strongest</em> lookers, layer 11 head 8
+      and layer 12 head 11, are their <em>negative</em> name movers: heads that attend to Mary just
+      as hard and write against her, pushing her score down. <mark class="hl">Attention weights say
+      where a head looks, not which way it pushes</mark>. Sorting them puts copiers and suppressors
+      in the same list, and only surgery of the kind Wang et al. did tells them apart.</p>
+
+      <p>The compact version of the three measurements fits in one screen:</p>
+
+      <div class="codeblock">
+        <div class="codebar">
+          <span class="lang">Python</span>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+<pre><code>import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+tok = AutoTokenizer.from_pretrained(<span class="s">"gpt2"</span>)
+model = AutoModelForCausalLM.from_pretrained(
+    <span class="s">"gpt2"</span>, output_attentions=True, output_hidden_states=True,
+    attn_implementation=<span class="s">"eager"</span>)
+model.eval()
+
+prompt = <span class="s">"When Mary and John went to the store, John gave a drink to"</span>
+enc = tok(prompt, return_tensors=<span class="s">"pt"</span>)
+with torch.no_grad():
+    out = model(**enc)
+
+<span class="c"># who does the model pick?</span>
+probs = torch.softmax(out.logits[0, -1], dim=-1)
+top = torch.topk(probs, 3)
+for pr, i in zip(top.values, top.indices):
+    print(repr(tok.decode([i])), round(float(pr), 3))
+
+<span class="c"># where does the last position look? (layer 11, head 8; 1-indexed)</span>
+att = out.attentions[10][0, 7, -1]        <span class="c"># [seq]</span>
+toks = [tok.decode([t]) for t in enc[<span class="s">"input_ids"</span>][0]]
+for t, w in sorted(zip(toks, att.tolist()), key=lambda x: -x[1])[:3]:
+    print(repr(t), round(w, 3))
+
+<span class="c"># read the running draft after every block (the logit lens)</span>
+ln_f, W = model.transformer.ln_f, model.transformer.wte.weight
+for L, h in enumerate(out.hidden_states):
+    v = h[0, -1] if L == 12 else ln_f(h[0, -1])
+    print(L, repr(tok.decode([int((v @ W.T).argmax())])))</code></pre>
+      </div>
+
+      <figure class="ntp" id="hm">
+        <figcaption class="ntp-head">
+          <span class="callout-label">Where the last position looks, head by head</span>
+          <span class="ntp-sub">Attention weights from the final position (“to”) to every token in the
+          sentence, for all 12 heads of the selected layer, from the same run as every other number
+          here. Cell darkness is square-root scaled so small weights stay visible; hover, tap, or use
+          arrow keys to read exact values.</span>
+        </figcaption>
+        <div class="lyr-ctl" role="group" aria-label="Choose a layer" id="hm-btns"></div>
+        <div id="hm-chart"></div>
+        <p class="hm-read" id="hm-read" aria-live="polite"></p>
+        <p class="ntp-note">The default view is layer 11, where head 8 looks hardest at “Mary” (and,
+        per Wang et al., writes against her). Flip to layer 10 for the name movers that copy her
+        (heads 7 and 10), layer 5 for the previous-token stripe on “drink” (head 12), layer 6 for the
+        purest attention sink on “When” (head 2), and layer 8 to see how much of the network idles on
+        the first token.</p>
+        <noscript><p class="ntp-sub">This figure needs JavaScript. The headline numbers are in the
+        prose above, and the notebook prints the full weight matrix for any layer.</p></noscript>
+      </figure>
+
+      <section class="ppq" data-q="2" data-answer="late">
+        <p class="ppq-kicker">Pause and predict · 2 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>The residual stream can be read at any depth: apply the final layernorm and the
+          output head to the vector as it stands, and you get the model’s guess-so-far. At which point
+          does “Mary” first become the top-ranked guess?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="early"><span>By layer 4: the names are right there in the sentence, so the copy happens early</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="gradual"><span>Around layer 8, after climbing steadily through the middle of the stack</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="late"><span>At layer 11 of 12, in a jump rather than a climb</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>Measured with the logit lens, “Mary” is ranked 43,494th of 50,257 at the embedding layer,
+          still 24th after layer 9, 2nd after layer 10, and 1st after layer 11 — a cliff, not a climb.
+          That is consistent with where the name-mover heads sit (layers 10–11): the answer is copied
+          into the final position late, after the middle layers have worked out that a person is
+          needed at all.</p>
+        </details>
+      </section>
+
+      <h2 id="lens">Reading the draft mid-flight</h2>
+
+      <p>The residual stream being a running draft suggests an obvious trick, which the community
+      calls the logit lens: take the vector at the final position as it stands after any block, apply
+      the final layernorm and the output head to it, and see what the model would guess <em>if the
+      network ended there</em>. It is
+      a probe with known blind spots (early layers were never trained to be read this way), but the
+      trajectory it draws is the story of this sentence:</p>
+
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">After layer</th><th scope="col">Top guess</th><th scope="col">p</th><th scope="col">Rank of “Mary”</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="wkcol">0 (embeddings)</td><td>“destro”</td><td class="wkcol">0.74</td><td class="wkcol">43,494</td></tr>
+          <tr><td class="wkcol">5</td><td>“drink”</td><td class="wkcol">0.20</td><td class="wkcol">2,624</td></tr>
+          <tr><td class="wkcol">8</td><td>“the”</td><td class="wkcol">0.48</td><td class="wkcol">316</td></tr>
+          <tr><td class="wkcol">9</td><td>“them”</td><td class="wkcol">0.84</td><td class="wkcol">24</td></tr>
+          <tr><td class="wkcol">10</td><td>“them”</td><td class="wkcol">0.76</td><td class="wkcol">2</td></tr>
+          <tr><td class="wkcol">11</td><td>“Mary”</td><td class="wkcol">0.61</td><td class="wkcol">1</td></tr>
+          <tr><td class="wkcol">12 (output)</td><td>“Mary”</td><td class="wkcol">0.45</td><td class="wkcol">1</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <p>Three things in that table were not what I expected. First, the shape: the draft is grammar
+      before it is fact. By layer 9 the model is already committed to “give a drink to <em>someone</em>”:
+      “them” at 0.84. Only then does the specific name arrive. <mark class="hl">The answer does
+      not accumulate; it arrives</mark>, between layers 10 and 11, exactly where the name-mover heads
+      sit. Second, the last block <em>lowers</em> confidence, from 0.61 to 0.45, spreading probability
+      back toward alternatives like “them” and “the”. On this sentence the final layer behaves less
+      like an author and more like an editor hedging the draft, and Wang et al.’s map names a
+      suspect: one of the Mary-suppressing heads above lives in that block. Third, layer 0 decodes to junk
+      (“destro”), a reminder that the lens reads early layers in a language they were never trained to
+      speak.</p>
+
+      <p>One bug from my own run belongs in the notes, because it rhymes with Week 1’s lesson about
+      probes. The library returns the final layer’s vector <em>already</em> normalized, and my first
+      lens applied the final layernorm a second time: layer 12 came out claiming “the” at 0.06, flatly
+      contradicting the model’s real output next to it. Normalizing twice is a silent no-op nowhere
+      and a wrong answer everywhere. The fix is one line, and the check that caught it is worth
+      stating: <mark class="hl">the lens at layer 12 must reproduce the model’s actual output
+      exactly</mark>: if it does not, the probe is broken, not the model.</p>
+
+      <figure class="flowline" aria-label="The route through one forward pass">
+        <span>Ids</span><span class="arr" aria-hidden="true">→</span><span>Lookup + position</span><span class="arr" aria-hidden="true">→</span><span class="core">attend · write</span><span class="arr" aria-hidden="true">→</span><span class="core">think · write</span><span class="arr" aria-hidden="true">→</span><span>×12</span><span class="arr" aria-hidden="true">→</span><span>One final vector</span><span class="arr" aria-hidden="true">→</span><span>50,257 scores</span>
+      </figure>
+
+      <p>That is the whole machine: a stream of 768-number drafts, edited twelve times by a lookup
+      that moves information sideways and an MLP that works in place, then read out once. Week 1
+      established that meaning enters through context; this week
+      located the machinery that moves it, and, for one sentence, caught it in the act at layer 11.</p>
+
+      <h2 id="reading">What I read this week</h2>
+
+      <p><a href="https://github.com/HandsOnLLM/Hands-On-Large-Language-Models"><em>Hands-On Large
+      Language Models</em></a> (Alammar and Grootendorst), chapter 3, is where this week’s title comes
+      from, and its diagrams of the transformer block are the best I have found: the residual stream,
+      attention, and the feed-forward layer drawn as physical plumbing rather than equations. It also
+      covers the decoding loop and the KV cache, which these notes defer to the inference weeks
+      <span class="wkchip">Week 17</span>.</p>
+
+      <p><a href="https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens">nostalgebraist,
+      <em>interpreting GPT: the logit lens</em></a> (2020) is the source of the mid-flight readout used
+      above, written as a working notebook with all of its own surprises left in. The observation that the stream holds a readable guess at every depth, mostly formed by the
+      middle of the network for ordinary text, is the frame I tested here; this sentence turned out
+      to be one of the interesting exceptions where the top of the stack does visible work.</p>
+
+      <h2 id="lab">Run it yourself</h2>
+
+      <p>The notebook runs the full experiment on a free CPU: the parameter census, both prompts, the
+      attention weights for all 144 heads, and the logit lens at every layer, with self-checks that
+      assert the headline numbers along the way. First run downloads about 0.5&nbsp;GB of model
+      weights, plus the pinned libraries where your environment differs.</p>
+
+      <p class="lab-cta">
+        <a class="btn btn-ghost" href="https://colab.research.google.com/github/revanthreddy-hai/the-llm-residency/blob/main/labs/week02_looking_inside_a_transformer.ipynb">Open the lab in Colab →</a>
+        <span class="note">Environment for the numbers in this essay: Python 3.14.7, torch 2.13.0,
+        transformers 5.16.1, model <code>gpt2</code> (revision 607a30d), greedy readout, no
+        sampling.</span>
+      </p>
+
+      <h2 id="sources">Sources &amp; further reading</h2>
+
+      <ul class="sources">
+        <li><a href="https://arxiv.org/abs/1706.03762">Vaswani et al., <em>Attention Is All You
+        Need</em></a> (2017): the original architecture. Section 3.2 is the Q/K/V lookup described
+        above, in its native notation.</li>
+        <li><a href="https://arxiv.org/abs/2211.00593">Wang et al., <em>Interpretability in the Wild:
+        a Circuit for Indirect Object Identification in GPT-2 small</em></a> (2022): the full
+        reverse-engineering of this week’s sentence, including the name-mover heads and the
+        duplicate-token machinery feeding them.</li>
+        <li><a href="https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens">nostalgebraist,
+        <em>interpreting GPT: the logit lens</em></a> (2020): the origin of the layer-by-layer
+        readout.</li>
+        <li><a href="https://arxiv.org/abs/2309.17453">Xiao et al., <em>Efficient Streaming Language
+        Models with Attention Sinks</em></a> (2023): why heads park their weight on early tokens, and
+        what breaks when you evict those tokens from the cache.</li>
+        <li><a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a>
+        (Polo Club, Georgia Tech): a live GPT-2 in the browser; useful to watch the same anatomy with
+        your own text flowing through it.</li>
+      </ul>
+
+    </article>
+
+    <div class="article-next">
+      <span class="k">Next in Working with models</span>
+      <p class="nt">Week 3: Text Classification <span class="soon">not started</span></p>
+      <p style="font-size:0.92rem; color: var(--ink-2); max-width: 40rem;">
+        Next: representation models read, generation models write, and classification wants a reader.
+        Embeddings plus a linear head against a fine-tuned encoder, measured.
+        <a href="index.html#subscribe">Subscribe</a> and it lands in your inbox the day it ships.
+        <em>Six months, ten hours a week, no magic.</em>
+      </p>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="fm">The LLM Residency</span>
+    <nav aria-label="Footer">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="diff.html">The Diff</a>
+      <a href="resources.html">Resources</a>
+      <a href="index.html#method">How it’s checked</a>
+      <a href="index.html#subscribe">Subscribe</a>
+      <a href="feed.xml">RSS</a>
+    </nav>
+    <p class="fine">Written from inside a real industrial LLM training residency, on open models and public sources.
+    This journal is personal. The notes, opinions, and mistakes are mine, not my employer’s.
+    © 2026 The LLM Residency.</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var TOKS = ["When", " Mary", " and", " John", " went", " to", " the", " store", ",", " John", " gave", " a", " drink", " to"];
+    var ATT = [[[0.241,0.066,0.024,0.044,0.132,0.013,0.029,0.064,0.025,0.057,0.141,0.029,0.121,0.017],[0.003,0.0,0.022,0.0,0.0,0.461,0.001,0.0,0.005,0.0,0.0,0.001,0.0,0.507],[0.196,0.037,0.1,0.029,0.056,0.151,0.029,0.031,0.059,0.026,0.069,0.026,0.017,0.174],[0.004,0.0,0.0,0.0,0.003,0.002,0.003,0.001,0.007,0.005,0.267,0.074,0.024,0.609],[0.03,0.001,0.003,0.002,0.064,0.013,0.008,0.011,0.011,0.009,0.354,0.079,0.172,0.244],[0.03,0.001,0.062,0.004,0.009,0.382,0.142,0.002,0.014,0.002,0.004,0.096,0.0,0.253],[0.105,0.046,0.006,0.039,0.038,0.169,0.004,0.061,0.004,0.056,0.058,0.006,0.1,0.309],[0.03,0.004,0.006,0.005,0.013,0.009,0.02,0.022,0.051,0.044,0.124,0.168,0.206,0.297],[0.015,0.003,0.087,0.007,0.019,0.118,0.16,0.007,0.137,0.01,0.019,0.188,0.014,0.217],[0.151,0.047,0.091,0.048,0.048,0.087,0.078,0.035,0.073,0.048,0.064,0.082,0.045,0.103],[0.119,0.043,0.107,0.043,0.066,0.12,0.083,0.03,0.076,0.035,0.059,0.082,0.027,0.111],[0.179,0.036,0.084,0.041,0.069,0.083,0.04,0.053,0.087,0.039,0.092,0.054,0.058,0.085]],[[0.052,0.002,0.003,0.003,0.034,0.004,0.022,0.009,0.039,0.026,0.443,0.172,0.123,0.068],[0.118,0.008,0.024,0.015,0.016,0.017,0.032,0.022,0.189,0.072,0.086,0.131,0.117,0.154],[0.067,0.016,0.044,0.035,0.049,0.076,0.061,0.046,0.103,0.075,0.081,0.093,0.093,0.16],[0.521,0.017,0.021,0.025,0.029,0.03,0.028,0.033,0.048,0.04,0.046,0.04,0.063,0.059],[0.241,0.039,0.028,0.044,0.043,0.043,0.044,0.063,0.055,0.079,0.071,0.06,0.107,0.084],[0.145,0.003,0.041,0.003,0.009,0.283,0.033,0.003,0.045,0.003,0.006,0.038,0.003,0.386],[0.384,0.015,0.039,0.019,0.077,0.035,0.049,0.026,0.057,0.015,0.141,0.073,0.035,0.034],[0.334,0.035,0.037,0.03,0.03,0.053,0.04,0.063,0.108,0.024,0.044,0.06,0.06,0.082],[0.318,0.037,0.053,0.036,0.048,0.067,0.063,0.027,0.085,0.044,0.054,0.069,0.033,0.068],[0.353,0.034,0.037,0.044,0.043,0.045,0.116,0.02,0.04,0.052,0.047,0.104,0.022,0.041],[0.003,0.035,0.032,0.049,0.062,0.051,0.048,0.077,0.079,0.087,0.114,0.074,0.166,0.123],[0.083,0.001,0.043,0.001,0.001,0.265,0.007,0.0,0.074,0.001,0.003,0.018,0.001,0.502]],[[0.147,0.004,0.013,0.006,0.005,0.022,0.011,0.018,0.051,0.042,0.075,0.088,0.188,0.329],[0.597,0.026,0.036,0.043,0.016,0.044,0.015,0.012,0.076,0.011,0.027,0.02,0.017,0.059],[0.051,0.0,0.0,0.0,0.0,0.0,0.001,0.001,0.004,0.005,0.069,0.354,0.444,0.07],[0.077,0.001,0.001,0.002,0.001,0.001,0.025,0.007,0.027,0.059,0.135,0.357,0.214,0.093],[0.141,0.0,0.001,0.0,0.009,0.001,0.005,0.003,0.052,0.004,0.239,0.121,0.244,0.18],[0.085,0.0,0.002,0.0,0.0,0.001,0.007,0.009,0.196,0.016,0.11,0.165,0.201,0.207],[0.458,0.003,0.013,0.007,0.009,0.021,0.025,0.007,0.185,0.029,0.049,0.076,0.014,0.105],[0.085,0.012,0.009,0.025,0.049,0.036,0.033,0.04,0.07,0.117,0.171,0.081,0.129,0.142],[0.027,0.0,0.0,0.0,0.006,0.0,0.003,0.001,0.015,0.002,0.798,0.046,0.069,0.032],[0.026,0.001,0.0,0.001,0.001,0.0,0.002,0.029,0.021,0.064,0.059,0.058,0.687,0.051],[0.12,0.022,0.013,0.026,0.046,0.039,0.031,0.064,0.049,0.073,0.14,0.065,0.173,0.139],[0.622,0.009,0.006,0.01,0.015,0.013,0.016,0.025,0.027,0.03,0.048,0.04,0.07,0.068]],[[0.958,0.0,0.002,0.0,0.01,0.007,0.004,0.0,0.001,0.0,0.004,0.004,0.001,0.008],[0.389,0.002,0.003,0.001,0.007,0.003,0.008,0.002,0.116,0.029,0.14,0.151,0.023,0.125],[0.115,0.0,0.0,0.0,0.001,0.0,0.004,0.0,0.003,0.019,0.374,0.402,0.041,0.041],[0.652,0.0,0.0,0.0,0.0,0.0,0.0,0.001,0.004,0.0,0.036,0.065,0.084,0.158],[0.887,0.003,0.003,0.001,0.022,0.006,0.009,0.01,0.009,0.001,0.026,0.007,0.011,0.005],[0.576,0.034,0.044,0.021,0.024,0.038,0.015,0.036,0.02,0.026,0.034,0.032,0.069,0.032],[0.14,0.004,0.001,0.003,0.005,0.001,0.002,0.024,0.034,0.164,0.068,0.234,0.158,0.162],[0.142,0.0,0.0,0.0,0.0,0.0,0.0,0.005,0.004,0.009,0.065,0.046,0.647,0.082],[0.342,0.0,0.0,0.0,0.001,0.001,0.001,0.002,0.062,0.009,0.14,0.042,0.063,0.337],[0.228,0.0,0.001,0.0,0.015,0.0,0.003,0.001,0.044,0.006,0.567,0.104,0.022,0.009],[0.516,0.001,0.001,0.002,0.007,0.036,0.008,0.007,0.023,0.004,0.068,0.078,0.043,0.206],[0.155,0.0,0.001,0.0,0.004,0.003,0.002,0.003,0.034,0.004,0.186,0.172,0.358,0.078]],[[0.113,0.0,0.0,0.0,0.005,0.0,0.001,0.0,0.011,0.006,0.308,0.44,0.089,0.026],[0.455,0.001,0.001,0.0,0.001,0.0,0.002,0.009,0.136,0.017,0.014,0.126,0.161,0.077],[0.696,0.043,0.01,0.01,0.023,0.014,0.014,0.016,0.032,0.024,0.03,0.017,0.056,0.016],[0.085,0.006,0.004,0.001,0.001,0.001,0.001,0.003,0.007,0.03,0.05,0.058,0.729,0.024],[0.589,0.018,0.017,0.003,0.006,0.029,0.038,0.009,0.02,0.004,0.092,0.043,0.049,0.082],[0.365,0.001,0.001,0.0,0.002,0.0,0.006,0.003,0.036,0.014,0.123,0.1,0.311,0.037],[0.596,0.011,0.008,0.004,0.005,0.009,0.012,0.028,0.024,0.021,0.035,0.064,0.117,0.066],[0.085,0.001,0.0,0.001,0.001,0.006,0.001,0.003,0.022,0.006,0.019,0.067,0.142,0.647],[0.713,0.006,0.007,0.006,0.011,0.019,0.017,0.112,0.015,0.003,0.015,0.01,0.049,0.017],[0.506,0.014,0.005,0.003,0.016,0.006,0.008,0.009,0.011,0.017,0.214,0.073,0.062,0.054],[0.859,0.004,0.005,0.005,0.007,0.019,0.005,0.011,0.022,0.005,0.012,0.008,0.007,0.03],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0]],[[0.948,0.001,0.0,0.0,0.001,0.0,0.006,0.001,0.004,0.004,0.004,0.003,0.019,0.009],[1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.398,0.006,0.004,0.002,0.007,0.003,0.011,0.017,0.014,0.006,0.127,0.151,0.249,0.006],[0.36,0.022,0.005,0.003,0.025,0.012,0.01,0.015,0.153,0.053,0.167,0.093,0.039,0.043],[0.198,0.001,0.0,0.001,0.003,0.001,0.003,0.019,0.022,0.014,0.08,0.131,0.49,0.036],[0.931,0.007,0.0,0.005,0.0,0.0,0.006,0.004,0.004,0.006,0.001,0.005,0.016,0.016],[0.931,0.001,0.0,0.0,0.0,0.0,0.0,0.0,0.001,0.001,0.003,0.001,0.057,0.003],[0.512,0.001,0.003,0.0,0.003,0.002,0.001,0.006,0.007,0.007,0.126,0.041,0.233,0.058],[0.838,0.007,0.001,0.006,0.004,0.0,0.022,0.007,0.044,0.027,0.005,0.016,0.012,0.011],[0.846,0.016,0.005,0.009,0.009,0.012,0.015,0.017,0.007,0.008,0.014,0.007,0.021,0.013],[0.278,0.017,0.004,0.005,0.002,0.007,0.017,0.011,0.01,0.008,0.058,0.041,0.451,0.091],[0.664,0.005,0.008,0.001,0.003,0.022,0.018,0.016,0.01,0.001,0.011,0.029,0.059,0.154]],[[0.143,0.012,0.005,0.015,0.015,0.003,0.002,0.006,0.011,0.226,0.428,0.077,0.039,0.018],[0.749,0.022,0.015,0.002,0.002,0.002,0.011,0.009,0.038,0.077,0.021,0.024,0.024,0.004],[0.574,0.015,0.046,0.031,0.04,0.032,0.015,0.026,0.11,0.021,0.024,0.019,0.022,0.026],[0.464,0.058,0.019,0.048,0.046,0.022,0.016,0.055,0.077,0.053,0.028,0.023,0.064,0.026],[0.37,0.042,0.025,0.027,0.064,0.065,0.022,0.054,0.117,0.025,0.091,0.052,0.023,0.022],[0.685,0.005,0.005,0.009,0.008,0.006,0.006,0.024,0.032,0.034,0.037,0.027,0.06,0.061],[0.666,0.008,0.004,0.005,0.007,0.017,0.015,0.015,0.011,0.008,0.017,0.012,0.032,0.185],[0.566,0.017,0.009,0.011,0.006,0.004,0.008,0.029,0.009,0.032,0.035,0.035,0.186,0.054],[0.256,0.001,0.0,0.0,0.004,0.001,0.002,0.004,0.002,0.004,0.164,0.197,0.339,0.027],[0.97,0.01,0.0,0.005,0.001,0.0,0.001,0.003,0.002,0.001,0.0,0.0,0.005,0.001],[0.86,0.003,0.001,0.003,0.007,0.004,0.007,0.007,0.016,0.005,0.012,0.017,0.035,0.023],[0.351,0.002,0.001,0.001,0.004,0.002,0.002,0.006,0.055,0.034,0.155,0.178,0.145,0.065]],[[0.867,0.0,0.0,0.0,0.0,0.0,0.0,0.001,0.003,0.006,0.026,0.013,0.066,0.018],[0.966,0.002,0.001,0.003,0.0,0.0,0.001,0.002,0.003,0.004,0.001,0.007,0.007,0.002],[0.998,0.001,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.001,0.0],[0.195,0.011,0.005,0.008,0.006,0.004,0.005,0.017,0.029,0.159,0.282,0.096,0.11,0.072],[0.855,0.001,0.0,0.001,0.001,0.0,0.001,0.005,0.002,0.009,0.057,0.019,0.034,0.014],[0.636,0.01,0.004,0.008,0.012,0.005,0.011,0.061,0.051,0.056,0.036,0.058,0.037,0.015],[0.846,0.011,0.009,0.024,0.007,0.011,0.001,0.02,0.007,0.012,0.017,0.005,0.017,0.012],[0.956,0.004,0.001,0.003,0.001,0.0,0.0,0.006,0.006,0.008,0.003,0.002,0.007,0.002],[0.216,0.002,0.001,0.0,0.002,0.001,0.001,0.003,0.002,0.019,0.247,0.076,0.41,0.022],[0.288,0.028,0.004,0.027,0.008,0.003,0.004,0.02,0.082,0.403,0.049,0.024,0.039,0.02],[0.985,0.005,0.0,0.003,0.0,0.0,0.001,0.001,0.002,0.001,0.001,0.002,0.001,0.001],[0.836,0.038,0.003,0.028,0.009,0.004,0.029,0.009,0.003,0.014,0.009,0.011,0.006,0.002]],[[0.554,0.003,0.008,0.006,0.019,0.02,0.048,0.043,0.04,0.012,0.022,0.075,0.085,0.066],[0.992,0.001,0.0,0.001,0.0,0.0,0.001,0.001,0.001,0.001,0.0,0.001,0.001,0.001],[0.233,0.042,0.039,0.06,0.048,0.036,0.014,0.067,0.147,0.133,0.025,0.05,0.07,0.036],[0.104,0.053,0.073,0.426,0.198,0.023,0.014,0.017,0.022,0.049,0.008,0.007,0.003,0.002],[0.501,0.001,0.0,0.001,0.002,0.001,0.004,0.006,0.01,0.005,0.114,0.118,0.196,0.042],[0.202,0.023,0.003,0.027,0.019,0.002,0.001,0.006,0.027,0.251,0.295,0.051,0.079,0.013],[0.274,0.065,0.004,0.026,0.0,0.001,0.004,0.004,0.004,0.601,0.002,0.007,0.005,0.002],[0.651,0.0,0.0,0.0,0.001,0.001,0.0,0.006,0.002,0.001,0.011,0.012,0.223,0.091],[0.512,0.021,0.021,0.019,0.007,0.011,0.006,0.067,0.055,0.053,0.049,0.021,0.102,0.056],[0.743,0.024,0.023,0.016,0.007,0.004,0.006,0.007,0.006,0.009,0.024,0.017,0.051,0.064],[0.24,0.086,0.027,0.095,0.009,0.005,0.008,0.01,0.01,0.422,0.039,0.013,0.015,0.022],[0.446,0.027,0.025,0.073,0.025,0.014,0.025,0.181,0.105,0.016,0.003,0.012,0.038,0.01]],[[0.839,0.085,0.001,0.014,0.0,0.0,0.0,0.031,0.001,0.013,0.0,0.0,0.015,0.0],[0.93,0.019,0.005,0.013,0.001,0.001,0.004,0.002,0.002,0.011,0.001,0.007,0.001,0.003],[0.834,0.056,0.006,0.011,0.002,0.001,0.001,0.038,0.009,0.015,0.002,0.004,0.017,0.005],[0.296,0.005,0.001,0.002,0.017,0.005,0.004,0.043,0.066,0.019,0.138,0.032,0.314,0.059],[0.703,0.159,0.054,0.021,0.004,0.005,0.003,0.002,0.004,0.021,0.004,0.004,0.004,0.013],[0.531,0.087,0.044,0.053,0.011,0.008,0.003,0.011,0.01,0.072,0.053,0.009,0.057,0.05],[0.331,0.492,0.002,0.116,0.0,0.0,0.0,0.001,0.0,0.057,0.0,0.001,0.001,0.001],[0.572,0.078,0.052,0.079,0.015,0.013,0.011,0.022,0.013,0.11,0.012,0.009,0.008,0.005],[0.357,0.287,0.014,0.213,0.006,0.006,0.006,0.013,0.006,0.078,0.001,0.002,0.007,0.003],[0.359,0.362,0.004,0.132,0.0,0.0,0.003,0.001,0.004,0.129,0.0,0.003,0.001,0.002],[0.889,0.002,0.001,0.001,0.002,0.002,0.001,0.003,0.004,0.006,0.008,0.007,0.048,0.028],[0.787,0.044,0.006,0.105,0.001,0.002,0.015,0.002,0.001,0.018,0.001,0.009,0.009,0.001]],[[0.432,0.323,0.005,0.103,0.004,0.002,0.003,0.013,0.007,0.068,0.002,0.004,0.02,0.015],[0.524,0.377,0.007,0.044,0.002,0.001,0.001,0.002,0.004,0.028,0.002,0.002,0.003,0.005],[0.344,0.105,0.024,0.335,0.002,0.001,0.002,0.001,0.01,0.151,0.003,0.006,0.002,0.012],[0.575,0.269,0.01,0.056,0.005,0.002,0.003,0.003,0.006,0.054,0.001,0.004,0.002,0.009],[0.757,0.051,0.013,0.053,0.007,0.006,0.01,0.008,0.009,0.054,0.005,0.013,0.004,0.01],[0.801,0.007,0.003,0.005,0.004,0.003,0.013,0.005,0.018,0.029,0.029,0.045,0.026,0.013],[0.506,0.105,0.003,0.213,0.002,0.001,0.001,0.021,0.003,0.141,0.001,0.001,0.004,0.002],[0.09,0.582,0.033,0.145,0.001,0.004,0.006,0.001,0.018,0.088,0.003,0.005,0.002,0.022],[0.923,0.013,0.01,0.006,0.001,0.002,0.01,0.002,0.004,0.004,0.004,0.011,0.002,0.007],[0.162,0.094,0.01,0.035,0.06,0.044,0.019,0.098,0.221,0.043,0.043,0.043,0.076,0.052],[0.584,0.262,0.018,0.07,0.003,0.002,0.003,0.001,0.007,0.028,0.003,0.005,0.002,0.01],[0.705,0.142,0.009,0.035,0.001,0.001,0.001,0.001,0.001,0.045,0.005,0.002,0.002,0.05]],[[0.087,0.113,0.151,0.105,0.028,0.022,0.036,0.026,0.081,0.228,0.033,0.026,0.028,0.036],[0.296,0.119,0.071,0.116,0.02,0.015,0.018,0.008,0.069,0.12,0.046,0.02,0.005,0.077],[0.626,0.123,0.025,0.093,0.003,0.003,0.004,0.002,0.029,0.028,0.014,0.002,0.003,0.044],[0.313,0.028,0.04,0.007,0.009,0.009,0.006,0.17,0.238,0.007,0.04,0.01,0.085,0.039],[0.588,0.067,0.061,0.076,0.015,0.008,0.015,0.006,0.069,0.035,0.016,0.014,0.002,0.027],[0.711,0.085,0.051,0.03,0.006,0.005,0.008,0.008,0.036,0.023,0.007,0.004,0.006,0.022],[0.699,0.139,0.025,0.049,0.004,0.002,0.004,0.003,0.015,0.035,0.006,0.003,0.002,0.015],[0.583,0.05,0.054,0.036,0.011,0.015,0.029,0.022,0.092,0.03,0.027,0.012,0.005,0.032],[0.001,0.01,0.025,0.014,0.053,0.02,0.016,0.015,0.286,0.146,0.319,0.033,0.014,0.049],[0.795,0.069,0.014,0.046,0.003,0.001,0.002,0.004,0.012,0.029,0.006,0.001,0.005,0.014],[0.037,0.529,0.033,0.158,0.003,0.002,0.002,0.001,0.036,0.155,0.019,0.001,0.003,0.02],[0.302,0.075,0.106,0.017,0.006,0.005,0.006,0.018,0.26,0.014,0.021,0.007,0.071,0.093]]];
+    var host = document.getElementById("hm-chart");
+    var read = document.getElementById("hm-read");
+    var btnHost = document.getElementById("hm-btns");
+    if (!host || !btnHost) return;
+    var NS = "http://www.w3.org/2000/svg";
+    var T = TOKS.length, HN = 12;
+    var W = 640, ML = 64, MR = 8, MT = 6, MB = 64;
+    var cw = (W - ML - MR) / T;
+    var ch = 24;
+    var H = MT + HN * ch + MB;
+    var layer = 11, curH = 8, curT = 2, interacted = false;
+
+    function label(t) { return t.replace(" ", "·"); }
+    function render() {
+      host.textContent = "";
+      var svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      svg.setAttribute("class", "hm-svg");
+      svg.setAttribute("tabindex", "0");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", "Heatmap of attention from the final position for layer " +
+        layer + ". Rows are heads 1 to 12, columns are the tokens of the sentence. Use arrow keys to read cells.");
+      host.appendChild(svg);
+      function el(name, attrs) {
+        var e = document.createElementNS(NS, name);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        svg.appendChild(e);
+        return e;
+      }
+      for (var h = 0; h < HN; h++) {
+        el("text", {x: ML - 8, y: MT + h * ch + ch / 2 + 4, "text-anchor": "end",
+          "font-family": "var(--mono)", "font-size": 11.5, fill: "var(--ink-2)"})
+          .textContent = "h" + (h + 1);
+        for (var t = 0; t < T; t++) {
+          var w = ATT[layer - 1][h][t];
+          el("rect", {x: ML + t * cw + 0.5, y: MT + h * ch + 0.5, width: cw - 1, height: ch - 1,
+            rx: 2.5, fill: "var(--accent)", "fill-opacity": Math.pow(w, 0.6).toFixed(3),
+            stroke: (h === curH - 1 && t === curT - 1) ? "var(--ink)" : "none", "stroke-width": 1.4});
+        }
+      }
+      for (var t2 = 0; t2 < T; t2++) {
+        var tx = el("text", {x: ML + t2 * cw + cw / 2, y: MT + HN * ch + 14,
+          "font-family": "var(--mono)", "font-size": 10.5, fill: "var(--ink-2)",
+          "text-anchor": "end",
+          transform: "rotate(-42 " + (ML + t2 * cw + cw / 2) + " " + (MT + HN * ch + 14) + ")"});
+        tx.textContent = label(TOKS[t2]);
+      }
+      function cellFromEvent(ev) {
+        var r = svg.getBoundingClientRect();
+        var px = (ev.clientX - r.left) / r.width * W;
+        var py = (ev.clientY - r.top) / r.height * H;
+        var t = Math.max(0, Math.min(T - 1, Math.floor((px - ML) / cw)));
+        var h = Math.max(0, Math.min(HN - 1, Math.floor((py - MT) / ch)));
+        return [h + 1, t + 1];
+      }
+      svg.addEventListener("pointermove", function (ev) {
+        var c = cellFromEvent(ev); setCell(c[0], c[1]);
+      });
+      svg.addEventListener("pointerdown", function (ev) {
+        interacted = true;
+        var c = cellFromEvent(ev); setCell(c[0], c[1]);
+      });
+      svg.addEventListener("keydown", function (ev) {
+        interacted = true;
+        if (ev.key === "ArrowLeft") { setCell(curH, Math.max(1, curT - 1)); ev.preventDefault(); }
+        if (ev.key === "ArrowRight") { setCell(curH, Math.min(T, curT + 1)); ev.preventDefault(); }
+        if (ev.key === "ArrowUp") { setCell(Math.max(1, curH - 1), curT); ev.preventDefault(); }
+        if (ev.key === "ArrowDown") { setCell(Math.min(HN, curH + 1), curT); ev.preventDefault(); }
+      });
+    }
+    function setCell(h, t, skipRender) {
+      curH = h; curT = t;
+      var w = ATT[layer - 1][h - 1][t - 1];
+      read.textContent = "layer " + layer + " · head " + h + " · “" + TOKS[t - 1].trim() +
+        "” · weight " + w.toFixed(3);
+      if (!skipRender) render();
+    }
+    for (var L = 1; L <= 12; L++) (function (L) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "lyr-btn"; b.textContent = L;
+      b.setAttribute("aria-pressed", L === layer ? "true" : "false");
+      b.addEventListener("click", function () {
+        interacted = true;
+        layer = L;
+        Array.prototype.forEach.call(btnHost.children, function (x) {
+          x.setAttribute("aria-pressed", x.textContent === String(L) ? "true" : "false");
+        });
+        setCell(curH, curT);
+      });
+      btnHost.appendChild(b);
+    })(L);
+    setCell(8, 2);
+  })();
+</script>
+<script>
+  (function () {
+    var marks = document.querySelectorAll("mark.hl");
+    if (!marks.length || !("IntersectionObserver" in window)) return;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    marks.forEach(function (m) { m.classList.add("hl-anim"); });
+    var pending = marks.length;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && !e.target.classList.contains("hl-on")) {
+          e.target.classList.add("hl-on");
+          pending--;
+          io.unobserve(e.target);
+        }
+      });
+      if (pending <= 0) io.disconnect();
+    }, {threshold: 1.0});
+    marks.forEach(function (m) { io.observe(m); });
+  })();
+</script>
+<script>
+  (function () {
+    var btn = document.querySelector("[data-copy]");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var code = btn.closest(".codeblock").querySelector("pre code");
+      var text = code.textContent;
+      function done(ok) {
+        btn.textContent = ok ? "Copied ✓" : "Select & copy";
+        setTimeout(function () { btn.textContent = "Copy"; }, 2000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      } else {
+        done(false);
+      }
+    });
+  })();
+</script>
+<script>
+  (function () {
+    var FB = {
+      "1": {
+        "mlp": "Counted from the loaded weights: 2,362,368 parameters in attention against 4,722,432 in the MLP, per block — 66.6% of the block. The MLP widens 768 numbers to 3,072 and back, and those two matrices are the largest single share of the model’s parameters.",
+        "attn": "Attention does the famous work with the smaller share of the weights: 2,362,368 parameters per block against the MLP’s 4,722,432. The lookup that moves information is cheap; most of the capacity sits in what each position does with it afterwards.",
+        "even": "The split is two to one, not even: 4,722,432 parameters in the MLP against 2,362,368 in attention, measured on the loaded model. The 768 → 3,072 → 768 widening is where a block keeps most of its weights."
+      },
+      "2": {
+        "late": "Right — and it is a jump, not a climb. “Mary” is ranked 43,494th at the embedding layer, 24th after layer 9, 2nd after layer 10, and 1st after layer 11, exactly where the name-mover heads sit. The middle of the stack works out that a recipient is needed; the copy of the right name happens late.",
+        "early": "Measured, the copy is late: “Mary” is still ranked 43,494th at the embeddings, 2,624th after layer 5, and 24th after layer 9. It reaches rank 1 only after layer 11, where the name-mover heads sit.",
+        "gradual": "The trajectory is not a steady climb. After layer 9 the top guess is still generic (“them” at 0.84) with “Mary” at rank 24; then rank 2 after layer 10 and rank 1 after layer 11. The specific answer arrives in a two-layer jump at the top of the stack."
+      }
+    };
+    var KEY = "llmres-ppq-w02@2026-08-31";
+    var state = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      state = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch (e) { state = {}; }
+
+    var sections = Array.prototype.slice.call(document.querySelectorAll(".ppq"));
+    var meta = document.getElementById("ppq-meta");
+    if (!sections.length) return;
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function reviewedCount() {
+      var n = 0;
+      sections.forEach(function (sec) { if (state[sec.getAttribute("data-q")]) n++; });
+      return n;
+    }
+
+    function renderMeta() {
+      var n = reviewedCount();
+      if (!meta) return;
+      if (n === 0) { meta.hidden = true; return; }
+      meta.hidden = false;
+      meta.textContent = n + " of " + sections.length + " reviewed";
+    }
+
+    function tagAnswer(sec) {
+      var ans = sec.getAttribute("data-answer");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        var input = row.querySelector("input"), text = row.querySelector("span");
+        if (input.value === ans && text && !text.querySelector(".ppq-ans-tag")) {
+          var t = document.createElement("span");
+          t.className = "ppq-ans-tag";
+          t.textContent = " · answer";
+          text.appendChild(t);
+        }
+      });
+    }
+
+    function apply(sec, value, announce) {
+      var q = sec.getAttribute("data-q");
+      var fb = sec.querySelector(".ppq-fb");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        row.classList.toggle("is-picked", row.querySelector("input").value === value);
+      });
+      sec.classList.add("is-done");
+      tagAnswer(sec);
+      if (value && value !== "reveal") {
+        if (announce) fb.setAttribute("role", "status");
+        var word = value === sec.getAttribute("data-answer") ? "" : "Not this one. ";
+        fb.textContent = word + FB[q][value];
+        var input = sec.querySelector("input[value=\"" + value + "\"]");
+        if (input) input.checked = true;
+      }
+    }
+
+    sections.forEach(function (sec) {
+      var q = sec.getAttribute("data-q");
+      sec.addEventListener("change", function (e) {
+        if (e.target && e.target.type === "radio") {
+          state[q] = e.target.value;
+          apply(sec, e.target.value, true);
+          save(); renderMeta();
+        }
+      });
+      var reason = sec.querySelector(".ppq-reason");
+      reason.addEventListener("toggle", function () {
+        if (reason.open && !state[q]) {
+          state[q] = "reveal";
+          sec.classList.add("is-done");
+          tagAnswer(sec);
+          save(); renderMeta();
+        }
+      });
+      var v = state[q];
+      if (v === "reveal" || (v && FB[q] && FB[q][v])) { apply(sec, v, false); }
+      else if (v) { delete state[q]; }
+    });
+    renderMeta();
+  })();
+</script>
+</body>
+</html>
