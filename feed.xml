@@ -9,6 +9,14 @@
   <updated>2026-08-31T00:00:00Z</updated>
   <author><name>The LLM Residency</name></author>
   <entry>
+    <title>Text Classification</title>
+    <link href="https://revanthreddy-hai.github.io/the-llm-residency/week03.html"/>
+    <id>https://revanthreddy-hai.github.io/the-llm-residency/week03.html</id>
+    <published>2026-08-31T00:00:00Z</published>
+    <updated>2026-08-31T00:00:00Z</updated>
+    <summary>Week 3. Four ways to ask a model whether a movie review is happy — frozen features from a reader and a writer, the reader fine-tuned, and zero-shot prompting — measured on 1,066 reviews. The approach that fails completely is the one everyone tries first.</summary>
+  </entry>
+  <entry>
     <title>Looking Inside a Transformer</title>
     <link href="https://revanthreddy-hai.github.io/the-llm-residency/week02.html"/>
     <id>https://revanthreddy-hai.github.io/the-llm-residency/week02.html</id>

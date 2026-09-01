@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text Classification · The LLM Residency, Week 3</title>
+<meta name="description" content="Is this movie review happy? A reader, a writer, four ways of asking, and 1,066 held-out reviews. The approach that fails completely is the one everyone tries first.">
+<meta property="og:title" content="Text Classification · The LLM Residency">
+<meta property="og:description" content="A 22M-parameter reader, a 124M-parameter writer, and four ways of asking whether a review is happy, measured: frozen features twice, fine-tuning, and one prompt that collapses.">
+<meta property="og:type" content="article">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='%23f9f9f7'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/atom+xml" title="The LLM Residency" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6">
+<style>
+  /* Week 3 figures: reader/writer diagram + labels-vs-accuracy chart */
+  .rw-scroll { overflow-x: auto; }
+  .rw-scroll svg { min-width: 620px; display: block; width: 100%; height: auto; }
+  .lyr-read { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2); margin: 8px 0 0; min-height: 1.4em; }
+  #crv-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  #crv-chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Highlighted phrases: one per act of the argument, each sweeps once on first view. */
+  :root { --hl: rgba(255, 224, 70, 0.42); }
+  @media (prefers-color-scheme: dark) {
+    :root { --hl: rgba(255, 214, 90, 0.16); }
+  }
+  mark.hl {
+    background: linear-gradient(var(--hl), var(--hl)) no-repeat left center;
+    background-size: 100% 84%;
+    color: inherit;
+    padding: 0 3px;
+    margin: 0 -3px;
+    border-radius: 3px;
+  }
+  mark.hl.hl-anim { background-size: 0% 84%; }
+  mark.hl.hl-anim.hl-on {
+    background-size: 100% 84%;
+    transition: background-size 750ms cubic-bezier(0.3, 0, 0.3, 1) 150ms;
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container">
+    <a class="wordmark" href="index.html">The LLM Residency</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="diff.html" class="nav-hide-m">The Diff</a>
+      <a href="resources.html" class="nav-hide-m">Resources</a>
+      <a href="feed.xml" class="nav-hide-m">RSS</a>
+      <a href="index.html#subscribe" class="nav-cta">Subscribe</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <header class="article-header">
+      <p class="kicker">Week 3 · Working with models</p>
+      <h1>Text Classification</h1>
+      <p class="dek">Is this movie review happy? I asked a 22-million-parameter reader and a
+      124-million-parameter writer, four different ways, on 1,066 held-out reviews. The approach that
+      failed completely is the one everyone tries first, and the diagnosis took one more measurement
+      than I expected.</p>
+      <div class="article-meta">
+        <span>≈ 11 min read</span>
+        <span>Last verified 2026-08-31</span>
+        <span>Working notes</span>
+        <span id="ppq-meta" hidden></span>
+      </div>
+    </header>
+
+    <article class="prose">
+
+      <aside class="callout" aria-label="Skip test">
+        <span class="callout-label">Skip test</span>
+        <p>Answer these three and you can jump straight to <a href="#lab">the lab</a>:</p>
+        <ol>
+          <li>Representation models and generation models process the same sentence differently.
+          Which one lets every position see the whole sentence, and did that advantage show up in
+          this week’s measurements?</li>
+          <li>In the frozen recipe (embed every review once, then fit a logistic regression on the
+          vectors), how many parameters actually train?</li>
+          <li>Prompted for sentiment, GPT-2 small scores 0.502 and says “positive” for 1,064 of
+          1,066 reviews. The same forward pass’s two-token score <em>margin</em> ranks the reviews
+          with AUC 0.797. What broke: the knowledge, or the interface?</li>
+        </ol>
+        <p class="fine">#3 cost me the least compute and surprised me the most: the model was not
+        confused, and proving that took a measurement I almost skipped.</p>
+      </aside>
+
+      <p>Weeks 1 and 2 stayed inside the model: how text becomes vectors, and how twelve blocks edit
+      them. This week the model gets a job. Sentiment classification is the smallest real task I
+      know: one sentence in, one bit out, and a labeled test set to keep everyone honest.</p>
+
+      <p>The reading draws a line through the whole topic: representation models read, generation
+      models write, and classification wants a reader. I have one of each on hand from the previous
+      weeks, so I put the slogan to work. One caution before the numbers, because it changes what
+      they can prove: <mark class="hl">this is a comparison of two specific checkpoints, not of two
+      architectures</mark>. The models differ in size, training data, objective, and pipeline all at
+      once, so nothing below isolates the direction of attention. What the measurements can do is
+      test the practical advice the slogan encodes, and they complicate it in useful ways.</p>
+
+      <h2 id="task">One question, 1,066 reviews</h2>
+
+      <p>The data is Pang and Lee’s 2005 sentence-polarity corpus: 10,662 one-sentence movie-review
+      snippets, each labeled by the polarity of the review it came from, in the 80/10/10 packaging
+      the Hugging Face <code>rotten_tomatoes</code> dataset established. That gives 8,530 training
+      sentences and 1,066 held-out test sentences, each split exactly half positive; there is also a
+      1,066-sentence validation slice that this week never touches, because nothing here is tuned:
+      every knob below is a library default. One test example, labeled positive:</p>
+
+      <p><em>“lovingly photographed in the manner of a golden book sprung to life , stuart little 2
+      manages sweetness largely without stickiness .”</em></p>
+
+      <p>The contestants: <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"><code>all-MiniLM-L6-v2</code></a>,
+      a 22.7-million-parameter sentence encoder (the reader, and the model Week 1 used for
+      retrieval), and GPT-2 small, the 124-million-parameter writer Weeks 1 and 2 dissected. Every
+      number below is from executed code; the <a href="#lab">notebook</a> reproduces all of it.</p>
+
+      <section class="ppq" data-q="1" data-answer="writer">
+        <p class="ppq-kicker">Pause and predict · 1 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Freeze both models and use them only to produce one vector per review. Train a
+          logistic-regression head on each, with all 8,530 labels. Which head scores higher on the
+          held-out reviews?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="reader"><span>The reader’s: it sees each sentence in both directions, and classification wants a reader</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="writer"><span>The writer’s: 124M parameters of anything beat 22.7M parameters of the right thing</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq1" value="tie"><span>Within a point of each other: pooling washes the difference out</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>Measured: the writer’s frozen features score 0.800 against the reader’s 0.774. Two
+          honesty notes before crowning anyone. A paired McNemar test puts that 2.6-point gap at
+          p&nbsp;=&nbsp;0.08 (the two heads disagree on 238 reviews, 133 of them the writer’s way):
+          suggestive, not settled, on 1,066 examples. And the comparison is between pipelines, not
+          architectures; the preprocessing section below shows one pipeline flag moving the writer
+          by 20 points. The reader’s real case is economics: within 2.6 points at 5.5× fewer
+          parameters, embedding the corpus in 7 seconds against 24.</p>
+        </details>
+      </section>
+
+      <figure class="ntp" aria-label="Reader and writer architectures, drawn as a diagram">
+        <figcaption class="ntp-head">
+          <span class="callout-label">Two shapes of attention, one recipe</span>
+          <span class="ntp-sub">The reader (an encoder) lets every position attend in both
+          directions; the writer (a decoder) only ever looks left, as Week 2 measured. Either way,
+          the frozen recipe is the same: pool the token vectors into one vector per review, and train
+          a small head on top.</span>
+        </figcaption>
+        <div class="rw-scroll">
+        <svg viewBox="0 0 760 330" role="img" aria-label="Diagram: an encoder with attention arcs in both directions and a decoder with arcs only to the left; both pool their token vectors into a single vector, which feeds a small trained classifier head.">
+          <defs>
+            <marker id="rw-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- reader -->
+          <text x="190" y="30" text-anchor="middle" font-family="var(--sans)" font-size="14.5" fill="var(--ink)">the reader · encoder</text>
+          <text x="190" y="49" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--ink-2)">all-MiniLM-L6-v2 · 22.7M params · 384 dims</text>
+          <g fill="var(--accent)">
+            <circle cx="90" cy="102" r="4"/><circle cx="140" cy="102" r="4"/><circle cx="190" cy="102" r="4"/><circle cx="240" cy="102" r="4"/><circle cx="290" cy="102" r="4"/>
+          </g>
+          <g fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.75">
+            <path d="M 90 96 C 115 74 165 74 190 96"/>
+            <path d="M 190 96 C 215 74 265 74 290 96"/>
+            <path d="M 140 96 C 180 62 250 62 290 96"/>
+            <path d="M 90 96 C 130 56 200 56 240 96"/>
+          </g>
+          <text x="190" y="135" text-anchor="middle" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">every position sees the whole sentence</text>
+
+          <!-- writer -->
+          <text x="570" y="30" text-anchor="middle" font-family="var(--sans)" font-size="14.5" fill="var(--ink)">the writer · decoder</text>
+          <text x="570" y="49" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--ink-2)">gpt2 · 124.4M params · 768 dims</text>
+          <g fill="var(--ink-2)">
+            <circle cx="470" cy="102" r="4"/><circle cx="520" cy="102" r="4"/><circle cx="570" cy="102" r="4"/><circle cx="620" cy="102" r="4"/><circle cx="670" cy="102" r="4"/>
+          </g>
+          <g fill="none" stroke="var(--ink-2)" stroke-width="1.2" opacity="0.75">
+            <path d="M 520 96 C 508 80 482 80 470 96"/>
+            <path d="M 570 96 C 545 72 495 72 470 96"/>
+            <path d="M 620 96 C 595 72 545 72 520 96"/>
+            <path d="M 670 96 C 630 60 510 60 470 96"/>
+          </g>
+          <text x="570" y="135" text-anchor="middle" font-family="var(--sans)" font-size="12" fill="var(--ink-2)">each position sees only the past (Week 2’s mask)</text>
+
+          <!-- pooling + head -->
+          <line x1="190" y1="150" x2="352" y2="216" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#rw-arr)"/>
+          <line x1="570" y1="150" x2="408" y2="216" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#rw-arr)"/>
+          <text x="380" y="178" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--ink-2)">pool the token vectors</text>
+          <rect x="352" y="224" width="56" height="26" rx="6" fill="var(--accent)" opacity="0.85"/>
+          <text x="380" y="270" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">one vector per review</text>
+          <line x1="380" y1="278" x2="380" y2="296" stroke="var(--ink-2)" stroke-width="1.4" marker-end="url(#rw-arr)"/>
+          <text x="380" y="318" text-anchor="middle" font-family="var(--sans)" font-size="13" fill="var(--ink)">logistic-regression head · <tspan font-family="var(--mono)" fill="var(--accent)">the only part that trains</tspan></text>
+        </svg>
+        </div>
+        <p class="ntp-note">On the reader’s 384-dimensional vectors, that head is 384 weights plus a
+        bias: 385 trained parameters against 22.7 million frozen ones. On the writer’s
+        768-dimensional vectors it is 769. Both heads fit in about a second on a laptop CPU.</p>
+      </figure>
+
+      <h2 id="frozen">Frozen features and a 385-parameter head</h2>
+
+      <p>The frozen recipe treats a language model the way Week 1 treated it: as a machine that
+      turns text into vectors. Embed all 8,530 training reviews once, fit a logistic regression on
+      the vectors, and the “training” of the classifier never touches the model at all. For the
+      reader, pooling is what the model was built for. For the writer I mean-pooled the final hidden
+      states over the real tokens: the same vectors Week 2 read with the logit lens. Measured:</p>
+
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Approach</th><th scope="col">What trains</th><th scope="col">Accuracy</th><th scope="col">F1</th><th scope="col">Compute (phase)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Reader frozen + head</td><td class="wkcol">385 params</td><td class="wkcol">0.774</td><td class="wkcol">0.775</td><td class="wkcol">7 s embed</td></tr>
+          <tr><td>Writer frozen + head</td><td class="wkcol">769 params</td><td class="wkcol">0.800</td><td class="wkcol">0.798</td><td class="wkcol">24 s embed</td></tr>
+          <tr><td>Reader fine-tuned</td><td class="wkcol">all 22.7M</td><td class="wkcol">0.827</td><td class="wkcol">0.817</td><td class="wkcol">31 s train</td></tr>
+          <tr><td>Writer prompted, zero-shot</td><td class="wkcol">nothing</td><td class="wkcol">0.502</td><td class="wkcol">0.667†</td><td class="wkcol">5 s score</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <p class="fine">Each row’s time covers its own bottleneck phase on a warm cache (embedding,
+      training, or scoring); head fitting adds about a second. †The zero-shot F1 is the degenerate
+      always-say-positive value: its confusion matrix is one column, which is the finding.</p>
+
+      <p>The first surprise is the second row. The slogan says classification wants a reader, and my
+      money was on MiniLM; instead the writer’s frozen features score 2.6 points higher. Honesty
+      requires two qualifiers. A paired test (McNemar) puts that gap at p&nbsp;=&nbsp;0.08 on 1,066
+      reviews: real enough to notice, not enough to settle. And the label-scarcity refuge I expected
+      to hand the reader turned out to be an artifact: my first single-seed curve showed the reader
+      leading at 50 labels, and rerunning every subset across ten seeds erased it. The means put the
+      writer ahead at every budget, inside wide, overlapping bands at the small ones:</p>
+
+      <figure class="ntp" id="crv">
+        <figcaption class="ntp-head">
+          <span class="callout-label">Accuracy against labels, ten seeds per point</span>
+          <span class="ntp-sub">Test accuracy of the same frozen recipe as the number of training
+          labels grows (log scale). Lines are means over ten random subsets per size; bands are the
+          min-to-max spread. Teal: the reader. Dashed: the writer. The full-size point uses the whole
+          training set, so it has no band. Hover, tap, or use arrow keys to read exact values.</span>
+        </figcaption>
+        <div id="crv-chart"></div>
+        <p class="lyr-read" id="crv-read" aria-live="polite"></p>
+        <p class="ntp-note">The lesson I actually took from this figure is about seeds, not
+        encoders: my first draft claimed the reader wins below 200 labels, on the strength of one
+        lucky subset (0.656 against 0.601). Ten seeds later the gap is 0.599 against 0.619 the other
+        way, inside bands seven points wide. At 50 labels, which subset you drew matters more than
+        which model you picked.</p>
+        <noscript><p class="ntp-sub">This chart needs JavaScript. Measured means (reader / writer):
+        0.5987 / 0.6189 at 50 labels, 0.6937 / 0.7041 at 200, 0.7345 / 0.7472 at 1,000, and
+        0.7739 / 0.8002 at 8,530.</p></noscript>
+      </figure>
+
+      <p>So where does the slogan stand? On raw frozen accuracy, behind. On economics, ahead:
+      <mark class="hl">the reader stays within 2.6 points of a model 5.5× its size, embeds the corpus
+      3.5× faster, and its vectors are half the width</mark>, which halves the head, the storage,
+      and later the vector-database bill. Per parameter and per second, the reader wins everywhere;
+      per point of accuracy with labels to burn, it does not.</p>
+
+      <p>One more measurement belongs here, because it nearly fooled me. The reader’s pipeline
+      L2-normalizes its vectors by design; my writer pipeline did not. Normalize the writer’s
+      vectors the same way and its accuracy falls from 0.800 to 0.604: <mark class="hl">one
+      preprocessing flag is worth twenty points</mark>, dwarfing the reader–writer gap itself. So
+      “identical heads” never made the comparison fair; the vectors carry their pipelines with them.
+      Preprocessing is part of the model, and slogans about architectures quietly assume it away.</p>
+
+      <p>The compact version of the frozen recipe fits in one screen; with the pinned environment
+      from <a href="#lab">the lab</a> it prints the first row’s accuracy at one more decimal place,
+      0.7739:</p>
+
+      <div class="codeblock">
+        <div class="codebar">
+          <span class="lang">Python</span>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+<pre><code>from datasets import load_dataset
+from sentence_transformers import SentenceTransformer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+ds = load_dataset(<span class="s">"cornell-movie-review-data/rotten_tomatoes"</span>,
+                  revision=<span class="s">"aa13bc287fa6fcab6daf52f0dfb9994269ffea28"</span>)
+
+encoder = SentenceTransformer(<span class="s">"sentence-transformers/all-MiniLM-L6-v2"</span>,
+                              revision=<span class="s">"1110a24"</span>)
+X_train = encoder.encode(list(ds[<span class="s">"train"</span>][<span class="s">"text"</span>]))   <span class="c"># [8530, 384], frozen</span>
+X_test  = encoder.encode(list(ds[<span class="s">"test"</span>][<span class="s">"text"</span>]))    <span class="c"># [1066, 384]</span>
+
+head = LogisticRegression(max_iter=2000, random_state=0)
+head.fit(X_train, ds[<span class="s">"train"</span>][<span class="s">"label"</span>])         <span class="c"># 385 trained parameters</span>
+print(round(accuracy_score(ds[<span class="s">"test"</span>][<span class="s">"label"</span>], head.predict(X_test)), 4))</code></pre>
+      </div>
+
+      <h2 id="tuned">Thirty-one seconds of teaching</h2>
+
+      <p>The frozen recipe’s ceiling is set by features that were never told about the task. The
+      next rung trains the whole reader: transformers puts a fresh classification head on the
+      encoder and all 22.7 million parameters update on the labeled reviews. Two epochs took 31
+      seconds on my laptop’s GPU and landed at 0.827, above both frozen rows, on a model less than a
+      fifth the writer’s size. What fine-tuning actually did to the representation is a question
+      this week only raises: Week 6 measures it properly, with regressions to catch what the
+      updating breaks.</p>
+
+      <section class="ppq" data-q="2" data-answer="coin">
+        <p class="ppq-kicker">Pause and predict · 2 of 2</p>
+        <fieldset class="ppq-f">
+          <legend>Last contestant: skip training entirely. Prompt GPT-2 small with the review
+          followed, on a new line, by “The sentiment of this review is”, and pick whichever of
+          “ positive” or “ negative” the model scores higher. What accuracy does the writer get by
+          writing?</legend>
+          <div class="ppq-opts">
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="near"><span>Around 0.75: close to its own frozen features, just noisier</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="mid"><span>Around 0.65: usable signal, well below a trained head</span></label>
+            <label class="ppq-opt"><input type="radio" name="ppq2" value="coin"><span>0.502: the balanced test set’s base rate</span></label>
+          </div>
+        </fieldset>
+        <p class="ppq-fb"></p>
+        <details class="ppq-reason">
+          <summary>Show reasoning</summary>
+          <p>0.502, and the shape of the failure is the lesson. The two-token readout picked
+          “ positive” for 1,064 of the 1,066 reviews (a rephrased prompt made it all 1,066), so it
+          scores essentially the base rate of the balanced test set. But the model is not blind:
+          the <em>margin</em> between the two token scores, ranked across reviews, separates
+          positive from negative with AUC 0.797. The knowledge is present; the decision threshold
+          the raw comparison implies is broken. The failure is calibration, not comprehension.</p>
+        </details>
+      </section>
+
+      <h2 id="prompt">The writer, writing</h2>
+
+      <p>The fourth row is the one that matters most for how this decade actually uses these models.
+      Prompting is classification by continuation: describe the task in text, and read the answer
+      out of the next-token distribution that Weeks 1 and 2 measured. To be precise about the
+      mechanics, since precision turns out to be the whole story: nothing is generated. For each
+      review I compare the scores the model assigns to exactly two candidate tokens, “ positive”
+      and “ negative”, after the prompt, and take the larger. The measured prompt places the review
+      first, then “The sentiment of this review is” on a new line (the notebook has the literal
+      template).</p>
+
+      <p>That readout scored 0.502, and picked “ positive” for 1,064 of 1,066 reviews; a rephrased
+      prompt made it 1,066 of 1,066. On a balanced test set, always saying positive scores the base
+      rate by construction. My first draft stopped there and concluded the model never engaged with
+      the question. That conclusion was wrong, and one more measurement showed it: rank the reviews
+      by the score <em>margin</em> between the two tokens and the ordering separates the classes
+      with AUC 0.797, about 0.72 accuracy if the cut is placed at the median margin instead of at
+      zero. <mark class="hl">The signal is in the margins; the zero point of the comparison is
+      broken</mark>. Both token scores lean so hard toward “ positive” after this template that the
+      sentiment signal, which is genuinely there, almost never crosses the line.</p>
+
+      <p>So the same 124 million parameters, asked the same question three ways: 0.800 through a
+      trained head on its features, roughly 0.72-worth of signal through the miscalibrated prompt
+      margin, 0.502 through the raw two-token comparison. The capability degrades as the interface
+      gets cheaper. This is the cleanest small demonstration I have of why prompt calibration and
+      instruction tuning exist: at this scale and vintage, base-model prompting needs its zero point
+      repaired before it classifies anything (Zhao et al. measured and fixed exactly this failure
+      class in 2021), and models only started answering instructions reliably once they were scaled
+      far past this size or trained on instructions outright, which is Week 7’s territory.</p>
+
+      <figure class="flowline" aria-label="Three recipes from review to label; the frozen one runs on both models">
+        <span>Review</span><span class="arr" aria-hidden="true">→</span><span class="core">embed, frozen ×2 models</span><span class="arr" aria-hidden="true">·</span><span class="core">or fine-tune it all</span><span class="arr" aria-hidden="true">·</span><span>or prompt, and calibrate</span>
+      </figure>
+
+      <p>What I am keeping from this week is not the slogan and not its refutation. Three habits
+      earned their place: compare pipelines, not architectures, because a preprocessing flag moved
+      this task eight times further than the encoder-versus-decoder gap; put error bars or a paired
+      test next to any gap under a few points, because my 2.6-point “win” is a p&nbsp;=&nbsp;0.08
+      suggestion and my low-data “crossover” was one seed’s fiction; and when an interface fails,
+      <mark class="hl">measure what the model knows separately from what the interface lets it
+      say</mark>. Week 15 turns the first two habits into a discipline; Week 4 picks up the
+      third.</p>
+
+      <h2 id="reading">What I read this week</h2>
+
+      <p><a href="https://github.com/HandsOnLLM/Hands-On-Large-Language-Models"><em>Hands-On Large
+      Language Models</em></a> (Alammar and Grootendorst), chapter 4, runs this same task on this
+      same dataset with a wider cast: task-specific sentiment models, embedding models with and
+      without labels, and generative models. Its representation-versus-generation frame is the
+      slogan this essay stress-tested, and its figures of the frozen recipe are the ones to study if
+      the pipeline above moved too fast.</p>
+
+      <p><a href="https://arxiv.org/abs/2210.07316">Muennighoff et al., <em>MTEB: Massive Text
+      Embedding Benchmark</em></a> (2022) is the answer to the question this week raises but does not
+      settle: which encoder should the frozen recipe use? Fifty-eight datasets’ worth of the same
+      measurement, including classification tasks exactly like this one. The residency meets it
+      again when retrieval arrives in <span class="wkchip">Week 5</span>.</p>
+
+      <h2 id="lab">Run it yourself</h2>
+
+      <p>The notebook reproduces every number here: all four rows, the normalization ablation, the
+      McNemar test, the ten-seed curves, and the margin AUC, with self-checks that assert each one.
+      The fine-tuning cell takes about ten minutes on a free Colab CPU and under a minute on a GPU
+      runtime; everything else runs in seconds. First run downloads the dataset and about
+      0.6&nbsp;GB of model weights, plus the pinned libraries where your environment differs.</p>
+
+      <p class="lab-cta">
+        <a class="btn btn-ghost" href="https://colab.research.google.com/github/revanthreddy-hai/the-llm-residency/blob/main/labs/week03_text_classification.ipynb">Open the lab in Colab →</a>
+        <span class="note">Environment for the numbers in this essay: Python 3.14.7, torch 2.13.0,
+        transformers 5.16.1, sentence-transformers 6.0.1, scikit-learn 1.9.0, datasets 5.0.1; models
+        <code>all-MiniLM-L6-v2</code> (revision 1110a24) and <code>gpt2</code> (revision 607a30d);
+        dataset revision aa13bc2; measured on Apple-silicon (MPS). CPU runs land within a few
+        thousandths on the frozen rows; fine-tuning varies a little more run to run.</span>
+      </p>
+
+      <h2 id="sources">Sources &amp; further reading</h2>
+
+      <ul class="sources">
+        <li><a href="https://arxiv.org/abs/cs/0506075">Pang and Lee, <em>Seeing stars: Exploiting
+        class relationships for sentiment categorization with respect to rating scales</em></a>
+        (2005): the sentence-polarity corpus this week trains and tests on, from the era when
+        sentiment analysis was the field’s hardest problem.</li>
+        <li><a href="https://arxiv.org/abs/1908.10084">Reimers and Gurevych,
+        <em>Sentence-BERT</em></a> (2019): the training recipe that turned encoders into the
+        one-vector-per-text machines the frozen recipe depends on; MiniLM descends from it.</li>
+        <li><a href="https://arxiv.org/abs/1905.05583">Sun et al., <em>How to Fine-Tune BERT for
+        Text Classification?</em></a> (2019): the systematic ablation of the choices the fine-tuning
+        row quietly made — learning rate, layers, epochs — and what each one costs.</li>
+        <li><a href="https://arxiv.org/abs/2102.09690">Zhao et al., <em>Calibrate Before Use:
+        Improving Few-Shot Performance of Language Models</em></a> (2021): the systematic study of
+        the broken-zero-point failure this week measured, with a content-free-prompt fix.</li>
+        <li><a href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">Radford
+        et al., <em>Language Models are Unsupervised Multitask Learners</em></a> (2019): the GPT-2
+        report and its zero-shot ambitions, which this week’s fourth row tests, at the smallest
+        scale the report shipped, on two prompts it never promised to handle.</li>
+      </ul>
+
+    </article>
+
+    <div class="article-next">
+      <span class="k">Next in Working with models</span>
+      <p class="nt">Week 4: Prompt Engineering <span class="soon">not started</span></p>
+      <p style="font-size:0.92rem; color: var(--ink-2); max-width: 40rem;">
+        Prompting failed this week for reasons a bigger, instruction-tuned model repairs. Next week
+        it works, and the question becomes: which parts of a prompt actually move accuracy, measured
+        against an eval set instead of eyeballed?
+        <a href="index.html#subscribe">Subscribe</a> and new entries land in your inbox the day they ship.
+        <em>Six months, ten hours a week, no magic.</em>
+      </p>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="fm">The LLM Residency</span>
+    <nav aria-label="Footer">
+      <a href="index.html#curriculum">Curriculum</a>
+      <a href="diff.html">The Diff</a>
+      <a href="resources.html">Resources</a>
+      <a href="index.html#method">How it’s checked</a>
+      <a href="index.html#subscribe">Subscribe</a>
+      <a href="feed.xml">RSS</a>
+    </nav>
+    <p class="fine">Written from inside a real industrial LLM training residency, on open models and public sources.
+    This journal is personal. The notes, opinions, and mistakes are mine, not my employer’s.
+    © 2026 The LLM Residency.</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var SIZES = [50, 200, 1000, 8530];
+    var READER = {mean: [0.5987, 0.6937, 0.7345, 0.7739], lo: [0.5263, 0.6445, 0.7176, 0.7739], hi: [0.6717, 0.7195, 0.7486, 0.7739]};
+    var WRITER = {mean: [0.6189, 0.7041, 0.7472, 0.8002], lo: [0.5610, 0.6801, 0.7261, 0.8002], hi: [0.6801, 0.7242, 0.7702, 0.8002]};
+    var host = document.getElementById("crv-chart");
+    var read = document.getElementById("crv-read");
+    if (!host) return;
+    var NS = "http://www.w3.org/2000/svg";
+    var W = 640, H = 330, ML = 46, MR = 34, MT = 14, MB = 34;
+    var LO = Math.log(50), HI = Math.log(8530);
+    var cur = 3;
+
+    function X(n) { return ML + (Math.log(n) - LO) / (HI - LO) * (W - ML - MR); }
+    function Y(v) { return MT + (1 - (v - 0.5) / 0.35) * (H - MT - MB); }
+    var guide = null;
+    function el(name, attrs, parent) {
+      var e = document.createElementNS(NS, name);
+      for (var k in attrs) e.setAttribute(k, attrs[k]);
+      parent.appendChild(e);
+      return e;
+    }
+    function pathFor(vals) {
+      var d = "";
+      for (var i = 0; i < vals.length; i++) d += (i ? " L " : "M ") + X(SIZES[i]).toFixed(1) + " " + Y(vals[i]).toFixed(1);
+      return d;
+    }
+    function bandFor(series) {
+      var d = "";
+      for (var i = 0; i < SIZES.length; i++) d += (i ? " L " : "M ") + X(SIZES[i]).toFixed(1) + " " + Y(series.hi[i]).toFixed(1);
+      for (var j = SIZES.length - 1; j >= 0; j--) d += " L " + X(SIZES[j]).toFixed(1) + " " + Y(series.lo[j]).toFixed(1);
+      return d + " Z";
+    }
+    function setRead(i) {
+      cur = i;
+      read.textContent = SIZES[i].toLocaleString("en-US") + " labels · reader " +
+        READER.mean[i].toFixed(4) + " [" + READER.lo[i].toFixed(4) + "–" + READER.hi[i].toFixed(4) + "] · writer " +
+        WRITER.mean[i].toFixed(4) + " [" + WRITER.lo[i].toFixed(4) + "–" + WRITER.hi[i].toFixed(4) + "]";
+      if (guide) {
+        guide.setAttribute("x1", X(SIZES[i])); guide.setAttribute("x2", X(SIZES[i]));
+        guide.setAttribute("opacity", "1");
+      }
+    }
+    function render() {
+      host.textContent = "";
+      var svg = el("svg", {viewBox: "0 0 " + W + " " + H, tabindex: "0", role: "img",
+        "aria-label": "Line chart of test accuracy against number of training labels for the reader and the writer, with min-to-max bands over ten seeds. Use left and right arrow keys to read the measured points."}, host);
+      for (var v = 5; v <= 8; v++) {
+        var yy = Y(v / 10);
+        el("line", {x1: ML, y1: yy, x2: W - MR, y2: yy, stroke: "var(--line)", "stroke-width": 1}, svg);
+        el("text", {x: ML - 7, y: yy + 4, "text-anchor": "end", "font-family": "var(--mono)",
+          "font-size": 13, fill: "var(--ink-2)"}, svg).textContent = (v / 10).toFixed(1);
+      }
+      SIZES.forEach(function (n) {
+        el("text", {x: X(n), y: H - 10, "text-anchor": "middle", "font-family": "var(--mono)",
+          "font-size": 12.5, fill: "var(--ink-2)"}, svg).textContent = n.toLocaleString("en-US");
+      });
+      el("path", {d: bandFor(READER), fill: "var(--accent)", "fill-opacity": 0.12, stroke: "none"}, svg);
+      el("path", {d: bandFor(WRITER), fill: "var(--ink-2)", "fill-opacity": 0.10, stroke: "none"}, svg);
+      el("path", {d: pathFor(READER.mean), fill: "none", stroke: "var(--accent)",
+        "stroke-width": 2.6, "stroke-linecap": "round"}, svg);
+      el("path", {d: pathFor(WRITER.mean), fill: "none", stroke: "var(--ink-2)",
+        "stroke-width": 2.2, "stroke-linecap": "round", "stroke-dasharray": "6 5"}, svg);
+      SIZES.forEach(function (n, i) {
+        el("circle", {cx: X(n), cy: Y(READER.mean[i]), r: 3.4, fill: "var(--accent)"}, svg);
+        el("circle", {cx: X(n), cy: Y(WRITER.mean[i]), r: 3.4, fill: "var(--ink-2)"}, svg);
+      });
+      el("text", {x: X(8530) - 6, y: Y(READER.mean[3]) + 26, "text-anchor": "end", "font-family": "var(--sans)",
+        "font-size": 12.5, fill: "var(--accent)"}, svg).textContent = "reader (MiniLM)";
+      el("text", {x: X(8530) - 6, y: Y(WRITER.mean[3]) - 12, "text-anchor": "end", "font-family": "var(--sans)",
+        "font-size": 12.5, fill: "var(--ink-2)"}, svg).textContent = "writer (GPT-2)";
+      guide = el("line", {x1: X(SIZES[cur]), y1: MT, x2: X(SIZES[cur]), y2: H - MB,
+        stroke: "var(--line-2)", "stroke-width": 1, opacity: 0}, svg);
+      function idxFromEvent(ev) {
+        var r = svg.getBoundingClientRect();
+        var px = (ev.clientX - r.left) / r.width * W;
+        var best = 0, bd = 1e9;
+        SIZES.forEach(function (n, i) {
+          var d = Math.abs(X(n) - px);
+          if (d < bd) { bd = d; best = i; }
+        });
+        return best;
+      }
+      svg.addEventListener("pointermove", function (ev) { setRead(idxFromEvent(ev)); });
+      svg.addEventListener("pointerdown", function (ev) { setRead(idxFromEvent(ev)); });
+      svg.addEventListener("keydown", function (ev) {
+        if (ev.key === "ArrowLeft") { setRead(Math.max(0, cur - 1)); ev.preventDefault(); }
+        if (ev.key === "ArrowRight") { setRead(Math.min(SIZES.length - 1, cur + 1)); ev.preventDefault(); }
+      });
+      setRead(cur);
+    }
+    render();
+  })();
+</script>
+<script>
+  (function () {
+    var marks = document.querySelectorAll("mark.hl");
+    if (!marks.length || !("IntersectionObserver" in window)) return;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    marks.forEach(function (m) { m.classList.add("hl-anim"); });
+    var pending = marks.length;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && !e.target.classList.contains("hl-on")) {
+          e.target.classList.add("hl-on");
+          pending--;
+          io.unobserve(e.target);
+        }
+      });
+      if (pending <= 0) io.disconnect();
+    }, {threshold: 1.0});
+    marks.forEach(function (m) { io.observe(m); });
+  })();
+</script>
+<script>
+  (function () {
+    var btn = document.querySelector("[data-copy]");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var code = btn.closest(".codeblock").querySelector("pre code");
+      var text = code.textContent;
+      function done(ok) {
+        btn.textContent = ok ? "Copied ✓" : "Select & copy";
+        setTimeout(function () { btn.textContent = "Copy"; }, 2000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      } else {
+        done(false);
+      }
+    });
+  })();
+</script>
+<script>
+  (function () {
+    var FB = {
+      "1": {
+        "writer": "Measured: 0.800 for the writer’s frozen features against 0.774 for the reader’s, with all 8,530 labels. Two qualifiers: a paired McNemar test puts the gap at p = 0.08 (suggestive, not settled), and this compares pipelines, not architectures — one preprocessing flag moves the writer by 20 points. The reader’s case is economics: within 2.6 points at 5.5× fewer parameters.",
+        "reader": "The slogan says so, and the measurement says otherwise: writer 0.800, reader 0.774 (paired McNemar p = 0.08, so treat the gap as suggestive). Ten-seed curves put the writer’s mean ahead at every label budget too. The reader’s real case is economics: 5.5× fewer parameters, 3.5× faster embedding, half the vector width.",
+        "tie": "The gap is 2.6 points: writer 0.800, reader 0.774. A paired McNemar test scores that at p = 0.08 on 1,066 reviews, so “not settled” is defensible — but the direction is not the one the slogan predicts, and the ten-seed curves put the writer’s mean ahead at every label budget."
+      },
+      "2": {
+        "coin": "0.502, and the shape matters more than the number: the two-token readout said “ positive” for 1,064 of 1,066 reviews, so it scores the balanced base rate by construction. The model is not blind — the score margin ranks the classes at AUC 0.797. Broken calibration, present knowledge.",
+        "near": "Not close: 0.502, essentially the base rate — the readout said “ positive” for 1,064 of 1,066 reviews. The signal exists (the score margin ranks the classes at AUC 0.797) but the zero point of the two-token comparison is broken, so almost nothing crosses the line.",
+        "mid": "Lower: 0.502, essentially the balanced base rate, because the readout said “ positive” for 1,064 of 1,066 reviews. Curiously, 0.65-ish signal is in there — the score margin ranks the classes at AUC 0.797, worth about 0.72 accuracy with a repaired threshold — but the raw comparison can’t reach it."
+      }
+    };
+    var KEY = "llmres-ppq-w03@2026-08-31";
+    var state = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      state = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch (e) { state = {}; }
+
+    var sections = Array.prototype.slice.call(document.querySelectorAll(".ppq"));
+    var meta = document.getElementById("ppq-meta");
+    if (!sections.length) return;
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function reviewedCount() {
+      var n = 0;
+      sections.forEach(function (sec) { if (state[sec.getAttribute("data-q")]) n++; });
+      return n;
+    }
+
+    function renderMeta() {
+      var n = reviewedCount();
+      if (!meta) return;
+      if (n === 0) { meta.hidden = true; return; }
+      meta.hidden = false;
+      meta.textContent = n + " of " + sections.length + " reviewed";
+    }
+
+    function tagAnswer(sec) {
+      var ans = sec.getAttribute("data-answer");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        var input = row.querySelector("input"), text = row.querySelector("span");
+        if (input.value === ans && text && !text.querySelector(".ppq-ans-tag")) {
+          var t = document.createElement("span");
+          t.className = "ppq-ans-tag";
+          t.textContent = " · answer";
+          text.appendChild(t);
+        }
+      });
+    }
+
+    function apply(sec, value, announce) {
+      var q = sec.getAttribute("data-q");
+      var fb = sec.querySelector(".ppq-fb");
+      sec.querySelectorAll(".ppq-opt").forEach(function (row) {
+        row.classList.toggle("is-picked", row.querySelector("input").value === value);
+      });
+      sec.classList.add("is-done");
+      tagAnswer(sec);
+      if (value && value !== "reveal") {
+        if (announce) fb.setAttribute("role", "status");
+        var word = value === sec.getAttribute("data-answer") ? "" : "Not this one. ";
+        fb.textContent = word + FB[q][value];
+        var input = sec.querySelector("input[value=\"" + value + "\"]");
+        if (input) input.checked = true;
+      }
+    }
+
+    sections.forEach(function (sec) {
+      var q = sec.getAttribute("data-q");
+      sec.addEventListener("change", function (e) {
+        if (e.target && e.target.type === "radio") {
+          state[q] = e.target.value;
+          apply(sec, e.target.value, true);
+          save(); renderMeta();
+        }
+      });
+      var reason = sec.querySelector(".ppq-reason");
+      reason.addEventListener("toggle", function () {
+        if (reason.open && !state[q]) {
+          state[q] = "reveal";
+          sec.classList.add("is-done");
+          tagAnswer(sec);
+          save(); renderMeta();
+        }
+      });
+      var v = state[q];
+      if (v === "reveal" || (v && FB[q] && FB[q][v])) { apply(sec, v, false); }
+      else if (v) { delete state[q]; }
+    });
+    renderMeta();
+  })();
+</script>
+</body>
+</html>
